@@ -22,10 +22,11 @@
 - [x] Driver service layer implemented
 - [x] Driver routes created (4 endpoints)
 - [x] V1 routes registered in main app
+- [x] Test data seed script created and executed
 
 ### In Progress
 
-- [ ] Importing test data or seed script
+- [ ] Testing all driver endpoints with seeded data
 
 ### Blocked/Issues
 
