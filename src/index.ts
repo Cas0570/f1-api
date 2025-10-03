@@ -47,6 +47,9 @@ async function registerPlugins() {
   });
 }
 
+// Import routes
+import { v1Routes } from './routes/v1';
+
 // Setup routes
 async function setupRoutes() {
   // Root endpoint
@@ -100,6 +103,9 @@ async function setupRoutes() {
       documentation: 'https://github.com/Cas0570/f1-api',
     };
   });
+
+  // Register API v1 routes
+  await fastify.register(v1Routes, { prefix: '/api/v1' });
 
   // 404 handler
   fastify.setNotFoundHandler((request, reply) => {
@@ -165,7 +171,7 @@ async function cleanup() {
     await fastify.close();
     fastify.log.info('Cleanup completed');
   } catch (error) {
-    fastify.log.error({ error }, 'Error during cleanup');
+    fastify.log.error({ error }, 'Error during cleanup:');
   }
 }
 
@@ -184,12 +190,12 @@ process.on('SIGTERM', async () => {
 
 // Handle uncaught errors
 process.on('uncaughtException', (error) => {
-  fastify.log.error({ error }, 'Uncaught Exception');
+  fastify.log.error({ error }, 'Uncaught Exception:');
   cleanup().then(() => process.exit(1));
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  fastify.log.error({ reason, promise }, 'Unhandled Rejection');
+  fastify.log.error({ reason, promise }, 'Unhandled Rejection at:');
   cleanup().then(() => process.exit(1));
 });
 
