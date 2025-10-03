@@ -1,17 +1,25 @@
-/**
- * API Response Types and Interfaces
- * Standardized response formats for the F1 API
- */
+// API Response Types
 
-// ============================================
-// PAGINATION
-// ============================================
+export interface ApiResponse<T> {
+  status: 'success' | 'error';
+  data?: T;
+  error?: ApiError;
+  meta?: PaginationMeta;
+}
+
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: unknown;
+}
 
 export interface PaginationMeta {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
 }
 
 export interface PaginationParams {
@@ -19,64 +27,40 @@ export interface PaginationParams {
   limit?: number;
 }
 
-// ============================================
-// API RESPONSES
-// ============================================
+// Driver Types
 
-export interface SuccessResponse<T> {
-  status: 'success';
-  data: T;
-  meta?: PaginationMeta;
-}
-
-export interface ErrorResponse {
-  status: 'error';
-  error: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
-}
-
-// ============================================
-// DRIVER TYPES
-// ============================================
-
-export interface DriverDTO {
+export interface DriverResponse {
   id: number;
   driverRef: string;
   number: number | null;
   code: string | null;
   forename: string;
   surname: string;
-  fullName: string; // Computed: forename + surname
+  fullName: string;
   dob: string; // ISO date string
   nationality: string;
   url: string;
 }
 
-export interface DriverListResponse {
-  drivers: DriverDTO[];
+export interface DriverDetailResponse extends DriverResponse {
+  stats?: {
+    races: number;
+    wins: number;
+    podiums: number;
+    poles: number;
+    championships: number;
+  };
 }
 
-export interface DriverDetailResponse {
-  driver: DriverDTO;
-}
-
-// ============================================
-// QUERY PARAMETERS
-// ============================================
-
+// Query parameter types
 export interface DriverQueryParams extends PaginationParams {
   nationality?: string;
-  search?: string; // Search by name or code
+  search?: string; // Search by name
 }
 
-// ============================================
-// TEAM TYPES (for future use)
-// ============================================
+// Team Types
 
-export interface TeamDTO {
+export interface TeamResponse {
   id: number;
   teamRef: string;
   name: string;
@@ -84,11 +68,9 @@ export interface TeamDTO {
   url: string;
 }
 
-// ============================================
-// CIRCUIT TYPES (for future use)
-// ============================================
+// Circuit Types
 
-export interface CircuitDTO {
+export interface CircuitResponse {
   id: number;
   circuitRef: string;
   name: string;
@@ -100,12 +82,23 @@ export interface CircuitDTO {
   url: string;
 }
 
-// ============================================
-// SEASON TYPES (for future use)
-// ============================================
+// Season Types
 
-export interface SeasonDTO {
+export interface SeasonResponse {
   id: number;
   year: number;
+  url: string;
+}
+
+// Race Types
+
+export interface RaceResponse {
+  id: number;
+  season: number;
+  round: number;
+  name: string;
+  date: string;
+  time: string | null;
+  circuit: CircuitResponse;
   url: string;
 }

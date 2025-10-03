@@ -1,180 +1,223 @@
-/**
- * Driver Service
- * Business logic for driver-related operations
- */
-
 import { PrismaClient } from '@prisma/client';
 import type {
-  DriverDTO,
+  DriverResponse,
+  DriverDetailResponse,
   DriverQueryParams,
   PaginationMeta,
 } from '../types/api';
 
 const prisma = new PrismaClient();
 
-/**
- * Convert Prisma Driver to DTO
- */
-function toDriverDTO(driver: any): DriverDTO {
-  return {
-    id: driver.id,
-    driverRef: driver.driverRef,
-    number: driver.number,
-    code: driver.code,
-    forename: driver.forename,
-    surname: driver.surname,
-    fullName: `${driver.forename} ${driver.surname}`,
-    dob: driver.dob.toISOString().split('T')[0], // Format as YYYY-MM-DD
-    nationality: driver.nationality,
-    url: driver.url,
-  };
-}
+export class DriverService {
+  /**
+   * Get all drivers with pagination and optional filtering
+   */
+  async getAllDrivers(
+    params: DriverQueryParams
+  ): Promise<{ drivers: DriverResponse[]; meta: PaginationMeta }> {
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.min(100, Math.max(1, params.limit || 20));
+    const skip = (page - 1) * limit;
 
-/**
- * Get all drivers with pagination and filtering
- */
-export async function getAllDrivers(params: DriverQueryParams = {}) {
-  const page = Math.max(1, params.page || 1);
-  const limit = Math.min(100, Math.max(1, params.limit || 20));
-  const skip = (page - 1) * limit;
+    // Build where clause
+    const where: any = {};
 
-  // Build where clause for filtering
-  const where: any = {};
+    if (params.nationality) {
+      where.nationality = {
+        equals: params.nationality,
+        mode: 'insensitive',
+      };
+    }
 
-  if (params.nationality) {
-    where.nationality = {
-      equals: params.nationality,
-      mode: 'insensitive',
-    };
-  }
-
-  if (params.search) {
-    where.OR = [
-      {
-        forename: {
-          contains: params.search,
-          mode: 'insensitive',
-        },
-      },
-      {
-        surname: {
-          contains: params.search,
-          mode: 'insensitive',
-        },
-      },
-      {
-        code: {
-          contains: params.search,
-          mode: 'insensitive',
-        },
-      },
-      {
-        driverRef: {
-          contains: params.search,
-          mode: 'insensitive',
-        },
-      },
-    ];
-  }
-
-  // Execute queries in parallel
-  const [drivers, total] = await Promise.all([
-    prisma.driver.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: [{ surname: 'asc' }, { forename: 'asc' }],
-    }),
-    prisma.driver.count({ where }),
-  ]);
-
-  const driverDTOs = drivers.map(toDriverDTO);
-
-  const meta: PaginationMeta = {
-    page,
-    limit,
-    total,
-    totalPages: Math.ceil(total / limit),
-  };
-
-  return { drivers: driverDTOs, meta };
-}
-
-/**
- * Get driver by ID
- */
-export async function getDriverById(id: number) {
-  const driver = await prisma.driver.findUnique({
-    where: { id },
-  });
-
-  if (!driver) {
-    return null;
-  }
-
-  return toDriverDTO(driver);
-}
-
-/**
- * Get driver by driver reference
- */
-export async function getDriverByRef(driverRef: string) {
-  const driver = await prisma.driver.findUnique({
-    where: { driverRef },
-  });
-
-  if (!driver) {
-    return null;
-  }
-
-  return toDriverDTO(driver);
-}
-
-/**
- * Get driver by code (e.g., "HAM", "VER")
- */
-export async function getDriverByCode(code: string) {
-  const driver = await prisma.driver.findUnique({
-    where: { code },
-  });
-
-  if (!driver) {
-    return null;
-  }
-
-  return toDriverDTO(driver);
-}
-
-/**
- * Search drivers by name
- */
-export async function searchDrivers(query: string, limit: number = 10) {
-  const drivers = await prisma.driver.findMany({
-    where: {
-      OR: [
+    if (params.search) {
+      where.OR = [
         {
           forename: {
-            contains: query,
+            contains: params.search,
             mode: 'insensitive',
           },
         },
         {
           surname: {
-            contains: query,
+            contains: params.search,
             mode: 'insensitive',
           },
         },
         {
-          code: {
-            contains: query,
+          driverRef: {
+            contains: params.search,
             mode: 'insensitive',
           },
         },
-      ],
-    },
-    take: limit,
-    orderBy: [{ surname: 'asc' }, { forename: 'asc' }],
-  });
+      ];
+    }
 
-  return drivers.map(toDriverDTO);
+    // Execute query with pagination
+    const [drivers, total] = await Promise.all([
+      prisma.driver.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ surname: 'asc' }, { forename: 'asc' }],
+      }),
+      prisma.driver.count({ where }),
+    ]);
+
+    // Transform to response format
+    const driverResponses: DriverResponse[] = drivers.map((driver) =>
+      this.transformDriverToResponse(driver)
+    );
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(total / limit);
+    const meta: PaginationMeta = {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
+
+    return { drivers: driverResponses, meta };
+  }
+
+  /**
+   * Get a single driver by ID
+   */
+  async getDriverById(id: number): Promise<DriverDetailResponse | null> {
+    const driver = await prisma.driver.findUnique({
+      where: { id },
+      include: {
+        raceResults: {
+          select: {
+            position: true,
+            points: true,
+          },
+        },
+        qualifyingResults: {
+          select: {
+            position: true,
+          },
+        },
+      },
+    });
+
+    if (!driver) {
+      return null;
+    }
+
+    // Calculate statistics
+    const races = driver.raceResults.length;
+    const wins = driver.raceResults.filter((r) => r.position === 1).length;
+    const podiums = driver.raceResults.filter(
+      (r) => r.position && r.position <= 3
+    ).length;
+    const poles = driver.qualifyingResults.filter(
+      (q) => q.position === 1
+    ).length;
+
+    // For championships, we'd need to query driver_standings
+    // This is a simplified version
+    const championships = 0; // TODO: Calculate from driver_standings
+
+    const response: DriverDetailResponse = {
+      ...this.transformDriverToResponse(driver),
+      stats: {
+        races,
+        wins,
+        podiums,
+        poles,
+        championships,
+      },
+    };
+
+    return response;
+  }
+
+  /**
+   * Get driver by reference (e.g., "hamilton")
+   */
+  async getDriverByRef(
+    driverRef: string
+  ): Promise<DriverDetailResponse | null> {
+    const driver = await prisma.driver.findUnique({
+      where: { driverRef },
+      include: {
+        raceResults: {
+          select: {
+            position: true,
+            points: true,
+          },
+        },
+        qualifyingResults: {
+          select: {
+            position: true,
+          },
+        },
+      },
+    });
+
+    if (!driver) {
+      return null;
+    }
+
+    // Calculate statistics (same as getDriverById)
+    const races = driver.raceResults.length;
+    const wins = driver.raceResults.filter((r) => r.position === 1).length;
+    const podiums = driver.raceResults.filter(
+      (r) => r.position && r.position <= 3
+    ).length;
+    const poles = driver.qualifyingResults.filter(
+      (q) => q.position === 1
+    ).length;
+    const championships = 0;
+
+    const response: DriverDetailResponse = {
+      ...this.transformDriverToResponse(driver),
+      stats: {
+        races,
+        wins,
+        podiums,
+        poles,
+        championships,
+      },
+    };
+
+    return response;
+  }
+
+  /**
+   * Transform Prisma driver model to API response
+   */
+  private transformDriverToResponse(driver: any): DriverResponse {
+    return {
+      id: driver.id,
+      driverRef: driver.driverRef,
+      number: driver.number,
+      code: driver.code,
+      forename: driver.forename,
+      surname: driver.surname,
+      fullName: `${driver.forename} ${driver.surname}`,
+      dob: driver.dob.toISOString().split('T')[0], // YYYY-MM-DD format
+      nationality: driver.nationality,
+      url: driver.url,
+    };
+  }
+
+  /**
+   * Get list of all nationalities (for filtering)
+   */
+  async getNationalities(): Promise<string[]> {
+    const drivers = await prisma.driver.findMany({
+      select: { nationality: true },
+      distinct: ['nationality'],
+      orderBy: { nationality: 'asc' },
+    });
+
+    return drivers.map((d) => d.nationality);
+  }
 }
+
+// Export singleton instance
+export const driverService = new DriverService();
