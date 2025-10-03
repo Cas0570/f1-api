@@ -1,0 +1,154 @@
+erDiagram
+    %% GENERATION 10: REAL-TIME STREAMING & PROFESSIONAL FEATURES
+    %% Gen 1-9 + Financial regulations, testing allocations, sprint formats
+    %% Plus enhanced infrastructure for real-time streaming
+    
+    %% ===== PREVIOUS GENERATIONS (minimal view) =====
+    
+    drivers {
+        int driver_id PK
+        string name
+    }
+    
+    teams {
+        int team_id PK
+        string name
+    }
+    
+    circuits {
+        int circuit_id PK
+        string name
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int circuit_id FK
+        boolean is_sprint_weekend "ENHANCED"
+        string sprint_format "ENHANCED - 2021/2022/2023+"
+    }
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+        string session_type
+        boolean is_live "ENHANCED - currently streaming"
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+    }
+    
+    sprint_results {
+        int sprint_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        int position
+        int points
+    }
+    
+    qualifying_results {
+        int qualifying_result_id PK
+        int race_id FK
+        int driver_id FK
+    }
+    
+    lap_times {
+        int lap_time_id PK
+        int session_id FK
+        int driver_id FK
+    }
+    
+    telemetry {
+        bigint telemetry_id PK
+        int session_id FK
+        int driver_id FK
+        datetime timestamp
+    }
+    
+    %% ===== NEW IN GENERATION 10 =====
+    
+    financial_regulations {
+        int regulation_id PK
+        int season_id FK
+        bigint cost_cap_usd "e.g., 135000000 for 2025"
+        text excluded_costs "driver salaries/marketing/etc"
+        bigint power_unit_cost_cap "customer team max price"
+        text special_rules
+        text enforcement_notes
+    }
+    
+    testing_allocations {
+        int allocation_id PK
+        int team_id FK
+        int season_id FK
+        int wind_tunnel_runs "based on championship position"
+        int cfd_simulations "based on championship position"
+        int constructor_position "determines allocation"
+        text restrictions
+    }
+    
+    sprint_points_systems {
+        int sprint_system_id PK
+        int season_id FK
+        int position "1-8"
+        int points "varies by year"
+        text notes "e.g., 2021 vs 2022+ formats"
+    }
+    
+    live_session_status {
+        int status_id PK
+        int session_id FK
+        datetime last_updated
+        string stream_status "active/paused/ended"
+        int connected_clients
+        bigint data_points_sent
+    }
+    
+    api_rate_limits {
+        int limit_id PK
+        string tier_name "free/basic/pro/enterprise"
+        int requests_per_minute
+        int requests_per_day
+        boolean telemetry_access
+        boolean live_streaming_access
+        bigint monthly_price_cents
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Previous generation relationships (simplified)
+    seasons ||--o{ races : "contains"
+    circuits ||--o{ races : "hosts"
+    races ||--o{ sessions : "has"
+    races ||--o{ race_results : "results"
+    races ||--o{ sprint_results : "sprint results"
+    races ||--o{ qualifying_results : "qualifying"
+    drivers ||--o{ race_results : "drives"
+    drivers ||--o{ sprint_results : "drives"
+    drivers ||--o{ qualifying_results : "participates"
+    teams ||--o{ race_results : "represents"
+    teams ||--o{ sprint_results : "represents"
+    sessions ||--o{ lap_times : "recorded"
+    drivers ||--o{ lap_times : "set by"
+    sessions ||--o{ telemetry : "captured"
+    drivers ||--o{ telemetry : "from car"
+    
+    %% Gen 10 new relationships
+    seasons ||--o{ financial_regulations : "governed by regulations"
+    
+    teams ||--o{ testing_allocations : "allocated testing time"
+    seasons ||--o{ testing_allocations : "for season"
+    
+    seasons ||--o{ sprint_points_systems : "sprint points by year"
+    
+    sessions ||--o{ live_session_status : "streaming status"

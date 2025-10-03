@@ -1,0 +1,133 @@
+erDiagram
+    %% GENERATION 6: WEATHER & TRACK CONDITIONS
+    %% Gen 1-5 + Weather data, track conditions, circuit layouts
+    
+    %% ===== PREVIOUS GENERATIONS (minimal view) =====
+    
+    drivers {
+        int driver_id PK
+        string name
+    }
+    
+    teams {
+        int team_id PK
+        string name
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+    }
+    
+    circuits {
+        int circuit_id PK
+        string circuit_ref
+        string name
+        string location
+        string country
+        float lat
+        float lng
+        int alt
+        int turns "NEW - number of turns"
+        float length_km "NEW - moved from layouts"
+        string direction "NEW - clockwise/anti-clockwise"
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int circuit_id FK
+        int layout_id FK "NEW - specific layout used"
+        int round
+        string name
+        date race_date
+    }
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+        string session_type
+        datetime session_start
+        datetime session_end
+        string weather_summary "NEW - overall weather"
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+    }
+    
+    lap_times {
+        int lap_time_id PK
+        int session_id FK
+        int driver_id FK
+        int lap_number
+    }
+    
+    tire_stints {
+        int stint_id PK
+        int race_id FK
+        int driver_id FK
+        int compound_id FK
+    }
+    
+    %% ===== NEW IN GENERATION 6 =====
+    
+    circuit_layouts {
+        int layout_id PK
+        int circuit_id FK
+        string layout_name "e.g., Grand Prix, Outer, Endurance"
+        float length_km
+        int turns
+        string direction "clockwise/anti-clockwise"
+        date valid_from
+        date valid_to
+        text elevation_profile_url
+        text layout_changes "description of changes"
+    }
+    
+    weather_data {
+        int weather_id PK
+        int session_id FK
+        datetime timestamp
+        float air_temp_c
+        float track_temp_c
+        int humidity_percent
+        float pressure_mbar
+        boolean rainfall
+        float rain_intensity "0-1 scale"
+        float wind_speed_ms
+        int wind_direction_deg "0-359"
+    }
+    
+    track_conditions {
+        int condition_id PK
+        int session_id FK
+        datetime timestamp
+        string surface_condition "dry/damp/wet/intermediate"
+        boolean drs_enabled
+        text notes
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Previous generation relationships (simplified)
+    seasons ||--o{ races : "contains"
+    races ||--o{ sessions : "has"
+    races ||--o{ race_results : "results"
+    drivers ||--o{ race_results : "drives"
+    teams ||--o{ race_results : "represents"
+    sessions ||--o{ lap_times : "recorded"
+    drivers ||--o{ lap_times : "set by"
+    races ||--o{ tire_stints : "stints"
+    drivers ||--o{ tire_stints : "driven"
+    
+    %% Gen 6 new relationships
+    circuits ||--o{ circuit_layouts : "has layouts"
+    circuits ||--o{ races : "hosts race"
+    circuit_layouts ||--o{ races : "specific layout used"
+    
+    sessions ||--o{ weather_data : "weather during session"
+    sessions ||--o{ track_conditions : "track surface conditions"

@@ -1,0 +1,122 @@
+erDiagram
+    %% GENERATION 1: CORE HISTORICAL FOUNDATION
+    %% MVP - Basic race results and championship data
+    
+    drivers {
+        int driver_id PK
+        string driver_ref "Unique reference (hamilton)"
+        int number "Permanent race number (2014+)"
+        string code "Three-letter code (HAM)"
+        string forename
+        string surname
+        date dob
+        string nationality
+        string url "Wikipedia URL"
+    }
+    
+    teams {
+        int team_id PK
+        string team_ref "Unique reference"
+        string name "Official team name"
+        string nationality
+        string url
+    }
+    
+    circuits {
+        int circuit_id PK
+        string circuit_ref "Unique reference"
+        string name
+        string location
+        string country
+        float lat
+        float lng
+        int alt "Altitude in meters"
+        string url
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+        string url
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int circuit_id FK
+        int round
+        string name "e.g., Monaco Grand Prix"
+        date race_date
+        time race_time
+        string url
+    }
+    
+    qualifying_results {
+        int qualifying_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        int position
+        string q1_time "MM:SS.mmm"
+        string q2_time
+        string q3_time
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        int grid_position "Starting position"
+        int position "Final position or NULL"
+        string position_text "1, 2, R, D, +1 LAP"
+        int points
+        int laps_completed
+        string time "Race time or gap to winner"
+        int time_millis
+        int status_id FK
+    }
+    
+    status {
+        int status_id PK
+        string status "Finished, Accident, Engine, etc"
+        string category "finished/mechanical/accident/disqualified"
+    }
+    
+    driver_standings {
+        int standing_id PK
+        int race_id FK "Standings after this race"
+        int driver_id FK
+        int points
+        int position
+        int wins
+    }
+    
+    constructor_standings {
+        int standing_id PK
+        int race_id FK "Standings after this race"
+        int team_id FK
+        int points
+        int position
+        int wins
+    }
+    
+    %% RELATIONSHIPS
+    
+    seasons ||--o{ races : "contains"
+    circuits ||--o{ races : "hosts"
+    
+    races ||--o{ qualifying_results : "has qualifying"
+    drivers ||--o{ qualifying_results : "participates"
+    teams ||--o{ qualifying_results : "represents"
+    
+    races ||--o{ race_results : "has results"
+    drivers ||--o{ race_results : "drives"
+    teams ||--o{ race_results : "represents"
+    race_results }o--|| status : "finishing status"
+    
+    races ||--o{ driver_standings : "standings after"
+    drivers ||--o{ driver_standings : "driver position"
+    
+    races ||--o{ constructor_standings : "standings after"
+    teams ||--o{ constructor_standings : "team position"

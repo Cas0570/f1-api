@@ -1,0 +1,128 @@
+erDiagram
+    %% GENERATION 9: RECORDS, MILESTONES & ACHIEVEMENTS
+    %% Gen 1-8 + Driver records, team records, grand slams, starting grid
+    
+    %% ===== PREVIOUS GENERATIONS (minimal view) =====
+    
+    drivers {
+        int driver_id PK
+        string name
+    }
+    
+    teams {
+        int team_id PK
+        string name
+    }
+    
+    circuits {
+        int circuit_id PK
+        string name
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int circuit_id FK
+    }
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+    }
+    
+    qualifying_results {
+        int qualifying_result_id PK
+        int race_id FK
+        int driver_id FK
+        int position
+    }
+    
+    lap_times {
+        int lap_time_id PK
+        int session_id FK
+        int driver_id FK
+    }
+    
+    %% ===== NEW IN GENERATION 9 =====
+    
+    driver_records {
+        int record_id PK
+        int driver_id FK
+        string record_type "youngest_start/most_wins/most_poles/fastest_lap/etc"
+        string record_value "age/count/time"
+        int race_id FK "race where achieved"
+        date date_achieved
+        text notes
+        boolean is_current "still holds record"
+    }
+    
+    team_records {
+        int record_id PK
+        int team_id FK
+        string record_type "most_wins/fastest_pitstop/consecutive_wins/etc"
+        string record_value
+        int race_id FK "race where achieved"
+        date date_achieved
+        text notes
+        boolean is_current
+    }
+    
+    grand_slams {
+        int grand_slam_id PK
+        int race_id FK
+        int driver_id FK
+        boolean pole_position
+        boolean led_every_lap
+        boolean fastest_lap
+        boolean race_win
+        boolean is_verified "manual verification"
+    }
+    
+    starting_grid {
+        int grid_id PK
+        int race_id FK
+        int driver_id FK
+        int grid_position "1-20+"
+        boolean pole_side "true if on pole position side"
+        boolean pit_lane_start
+        text penalty_notes "reason for non-qualifying position"
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Previous generation relationships (simplified)
+    seasons ||--o{ races : "contains"
+    circuits ||--o{ races : "hosts"
+    races ||--o{ sessions : "has"
+    races ||--o{ race_results : "results"
+    races ||--o{ qualifying_results : "qualifying"
+    drivers ||--o{ race_results : "drives"
+    drivers ||--o{ qualifying_results : "participates"
+    teams ||--o{ race_results : "represents"
+    sessions ||--o{ lap_times : "recorded"
+    drivers ||--o{ lap_times : "set by"
+    
+    %% Gen 9 new relationships
+    drivers ||--o{ driver_records : "holds records"
+    races ||--o{ driver_records : "achieved in race"
+    
+    teams ||--o{ team_records : "holds records"
+    races ||--o{ team_records : "achieved in race"
+    
+    races ||--o{ grand_slams : "grand slam achieved"
+    drivers ||--o{ grand_slams : "achieved by driver"
+    
+    races ||--o{ starting_grid : "grid formation"
+    drivers ||--o{ starting_grid : "grid position"

@@ -1,0 +1,145 @@
+erDiagram
+    %% GENERATION 7: RACE CONTROL & SAFETY SYSTEMS
+    %% Gen 1-6 + Race control, flags, safety car, DRS
+    
+    %% ===== PREVIOUS GENERATIONS (minimal view) =====
+    
+    drivers {
+        int driver_id PK
+        string name
+    }
+    
+    teams {
+        int team_id PK
+        string name
+    }
+    
+    circuits {
+        int circuit_id PK
+        string name
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int circuit_id FK
+        int round
+    }
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+        string session_type
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+    }
+    
+    lap_times {
+        int lap_time_id PK
+        int session_id FK
+        int driver_id FK
+        string track_status "ENHANCED - green/yellow/sc/vsc/red"
+    }
+    
+    %% ===== NEW IN GENERATION 7 =====
+    
+    race_control_messages {
+        int message_id PK
+        int session_id FK
+        datetime timestamp
+        int lap_number
+        string category "Flag/SafetyCar/DRS/CarEvent/Other"
+        text message
+        int driver_id FK
+        string scope "Track/Driver/Sector"
+        int sector
+        string flag_type
+    }
+    
+    flags {
+        int flag_id PK
+        string flag_type "green/yellow/red/blue/black/white/etc"
+        string color
+        string meaning "short description"
+        text full_description
+    }
+    
+    flag_incidents {
+        int incident_id PK
+        int session_id FK
+        int flag_id FK
+        datetime timestamp
+        int lap_number
+        int sector
+        string marshal_post
+        int duration_seconds
+        int driver_id FK "for blue flags"
+        boolean driver_complied
+        text notes
+    }
+    
+    safety_car_periods {
+        int period_id PK
+        int race_id FK
+        string safety_car_type "SC/VSC"
+        int lap_deployed
+        int lap_in
+        int lap_out
+        string trigger_reason "accident/debris/weather"
+        text incident_description
+        boolean lapped_cars_unlapped
+        int safety_car_laps "total laps under SC/VSC"
+    }
+    
+    drs_zones {
+        int zone_id PK
+        int circuit_id FK
+        int zone_number "1/2/3/4"
+        float detection_point_distance "meters from start line"
+        float activation_point_distance "meters from start line"
+        float zone_length_meters
+        int speed_benefit_kmh "typical advantage"
+        int year_introduced
+        int year_removed
+    }
+    
+    drs_availability {
+        int availability_id PK
+        int session_id FK
+        int lap_number
+        boolean is_enabled
+        string disabled_reason "weather/incident/first_lap/sc/vsc"
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Previous generation relationships (simplified)
+    seasons ||--o{ races : "contains"
+    circuits ||--o{ races : "hosts"
+    races ||--o{ sessions : "has"
+    races ||--o{ race_results : "results"
+    drivers ||--o{ race_results : "drives"
+    sessions ||--o{ lap_times : "recorded"
+    drivers ||--o{ lap_times : "set by"
+    
+    %% Gen 7 new relationships
+    sessions ||--o{ race_control_messages : "messages during session"
+    drivers ||--o{ race_control_messages : "regarding driver"
+    
+    sessions ||--o{ flag_incidents : "flags shown"
+    flags ||--o{ flag_incidents : "type of flag"
+    drivers ||--o{ flag_incidents : "shown to driver"
+    
+    races ||--o{ safety_car_periods : "SC/VSC deployments"
+    
+    circuits ||--o{ drs_zones : "DRS zones at circuit"
+    sessions ||--o{ drs_availability : "DRS status per lap"

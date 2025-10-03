@@ -1,0 +1,219 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Generation 1 Models
+
+model Driver {
+  id          Int      @id @default(autoincrement())
+  driverRef   String   @unique @map("driver_ref")
+  number      Int?     @map("number")
+  code        String?  @unique @db.VarChar(3)
+  forename    String   @db.VarChar(255)
+  surname     String   @db.VarChar(255)
+  dob         DateTime @map("dob") @db.Date
+  nationality String   @db.VarChar(255)
+  url         String   @unique
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  qualifyingResults QualifyingResult[]
+  raceResults       RaceResult[]
+  driverStandings   DriverStanding[]
+
+  @@map("drivers")
+  @@index([driverRef])
+  @@index([code])
+}
+
+model Team {
+  id          Int      @id @default(autoincrement())
+  teamRef     String   @unique @map("team_ref")
+  name        String   @db.VarChar(255)
+  nationality String   @db.VarChar(255)
+  url         String   @unique
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  qualifyingResults    QualifyingResult[]
+  raceResults          RaceResult[]
+  constructorStandings ConstructorStanding[]
+
+  @@map("teams")
+  @@index([teamRef])
+}
+
+model Circuit {
+  id         Int      @id @default(autoincrement())
+  circuitRef String   @unique @map("circuit_ref")
+  name       String   @db.VarChar(255)
+  location   String   @db.VarChar(255)
+  country    String   @db.VarChar(255)
+  lat        Float?
+  lng        Float?
+  alt        Int?
+  url        String   @unique
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  races Race[]
+
+  @@map("circuits")
+  @@index([circuitRef])
+}
+
+model Season {
+  id        Int      @id @default(autoincrement())
+  year      Int      @unique
+  url       String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  races Race[]
+
+  @@map("seasons")
+  @@index([year])
+}
+
+model Race {
+  id        Int       @id @default(autoincrement())
+  seasonId  Int       @map("season_id")
+  circuitId Int       @map("circuit_id")
+  round     Int
+  name      String    @db.VarChar(255)
+  date      DateTime  @db.Date
+  time      DateTime? @db.Time
+  url       String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  season               Season                @relation(fields: [seasonId], references: [id])
+  circuit              Circuit               @relation(fields: [circuitId], references: [id])
+  qualifyingResults    QualifyingResult[]
+  raceResults          RaceResult[]
+  driverStandings      DriverStanding[]
+  constructorStandings ConstructorStanding[]
+
+  @@unique([seasonId, round])
+  @@map("races")
+  @@index([seasonId])
+  @@index([circuitId])
+}
+
+model QualifyingResult {
+  id         Int      @id @default(autoincrement())
+  raceId     Int      @map("race_id")
+  driverId   Int      @map("driver_id")
+  teamId     Int      @map("team_id")
+  position   Int
+  q1Time     String?  @map("q1_time") @db.VarChar(20)
+  q2Time     String?  @map("q2_time") @db.VarChar(20)
+  q3Time     String?  @map("q3_time") @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  race   Race   @relation(fields: [raceId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
+  team   Team   @relation(fields: [teamId], references: [id])
+
+  @@unique([raceId, driverId])
+  @@map("qualifying_results")
+  @@index([raceId])
+  @@index([driverId])
+  @@index([teamId])
+}
+
+model RaceResult {
+  id           Int      @id @default(autoincrement())
+  raceId       Int      @map("race_id")
+  driverId     Int      @map("driver_id")
+  teamId       Int      @map("team_id")
+  gridPosition Int      @map("grid_position")
+  position     Int?
+  positionText String   @map("position_text") @db.VarChar(10)
+  points       Float    @default(0)
+  laps         Int      @map("laps_completed")
+  time         String?  @db.VarChar(50)
+  timeMillis   Int?     @map("time_millis")
+  statusId     Int      @map("status_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  race   Race   @relation(fields: [raceId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
+  team   Team   @relation(fields: [teamId], references: [id])
+  status Status @relation(fields: [statusId], references: [id])
+
+  @@unique([raceId, driverId])
+  @@map("race_results")
+  @@index([raceId])
+  @@index([driverId])
+  @@index([teamId])
+}
+
+model Status {
+  id          Int          @id @default(autoincrement())
+  status      String       @unique @db.VarChar(255)
+  category    String       @db.VarChar(50)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  raceResults RaceResult[]
+
+  @@map("status")
+}
+
+model DriverStanding {
+  id        Int      @id @default(autoincrement())
+  raceId    Int      @map("race_id")
+  driverId  Int      @map("driver_id")
+  points    Float
+  position  Int
+  wins      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  race   Race   @relation(fields: [raceId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@unique([raceId, driverId])
+  @@map("driver_standings")
+  @@index([raceId])
+  @@index([driverId])
+  @@index([position])
+}
+
+model ConstructorStanding {
+  id        Int      @id @default(autoincrement())
+  raceId    Int      @map("race_id")
+  teamId    Int      @map("team_id")
+  points    Float
+  position  Int
+  wins      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  race Race @relation(fields: [raceId], references: [id])
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@unique([raceId, teamId])
+  @@map("constructor_standings")
+  @@index([raceId])
+  @@index([teamId])
+  @@index([position])
+}

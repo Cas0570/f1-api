@@ -1,0 +1,137 @@
+erDiagram
+    %% GENERATION 8: ADVANCED PERFORMANCE TELEMETRY
+    %% Gen 1-7 + Real-time telemetry, mini-sectors, intervals, team radio
+    
+    %% ===== PREVIOUS GENERATIONS (minimal view) =====
+    
+    drivers {
+        int driver_id PK
+        string name
+    }
+    
+    teams {
+        int team_id PK
+        string name
+    }
+    
+    circuits {
+        int circuit_id PK
+        string name
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int circuit_id FK
+    }
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+        string session_type
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+    }
+    
+    lap_times {
+        int lap_time_id PK
+        int session_id FK
+        int driver_id FK
+        int lap_number
+        boolean is_personal_best "ENHANCED"
+        boolean is_overall_best "ENHANCED"
+    }
+    
+    sector_times {
+        int sector_time_id PK
+        int lap_time_id FK
+        int driver_id FK
+        int sector_number
+        string color_indicator "ENHANCED - yellow/green/purple"
+        boolean is_personal_best "ENHANCED"
+        boolean is_overall_best "ENHANCED"
+    }
+    
+    %% ===== NEW IN GENERATION 8 =====
+    
+    telemetry {
+        bigint telemetry_id PK
+        int session_id FK
+        int driver_id FK
+        datetime timestamp
+        int speed_kmh
+        int throttle_percent "0-100"
+        int brake_percent "0-100"
+        int drs_status "0/1/8/10/12/14"
+        int gear "0-8, 0=neutral"
+        int rpm
+        float x_coord "track position X"
+        float y_coord "track position Y"
+        float z_coord "track position Z"
+        float distance_driven "cumulative meters"
+        float relative_distance "0-1 scale on track"
+    }
+    
+    mini_sectors {
+        int mini_sector_id PK
+        int lap_time_id FK
+        int driver_id FK
+        int lap_number
+        int segment_number "1-24 (8 per sector)"
+        int value "0/2048/2049/2051/2064"
+    }
+    
+    intervals {
+        int interval_id PK
+        int session_id FK
+        int driver_id FK
+        datetime timestamp
+        string gap_to_leader "time or +N LAP"
+        string interval_ahead "to car in front"
+        string interval_behind "to car behind"
+        int position "real-time position"
+    }
+    
+    team_radio {
+        int radio_id PK
+        int session_id FK
+        int driver_id FK
+        datetime timestamp
+        string recording_url "MP3 URL"
+        text transcript "AI-generated or manual"
+        int lap_number
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Previous generation relationships (simplified)
+    seasons ||--o{ races : "contains"
+    circuits ||--o{ races : "hosts"
+    races ||--o{ sessions : "has"
+    races ||--o{ race_results : "results"
+    drivers ||--o{ race_results : "drives"
+    sessions ||--o{ lap_times : "recorded"
+    drivers ||--o{ lap_times : "set by"
+    lap_times ||--o{ sector_times : "divided into"
+    
+    %% Gen 8 new relationships
+    sessions ||--o{ telemetry : "telemetry captured"
+    drivers ||--o{ telemetry : "from driver car"
+    
+    lap_times ||--o{ mini_sectors : "24 segments per lap"
+    drivers ||--o{ mini_sectors : "performance data"
+    
+    sessions ||--o{ intervals : "live gaps tracked"
+    drivers ||--o{ intervals : "for driver"
+    
+    sessions ||--o{ team_radio : "communications"
+    drivers ||--o{ team_radio : "from driver"

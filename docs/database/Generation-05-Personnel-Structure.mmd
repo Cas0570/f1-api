@@ -1,0 +1,163 @@
+erDiagram
+    %% GENERATION 5: PERSONNEL & TEAM STRUCTURE
+    %% Gen 1+2+3+4 + Personnel, contracts, component usage
+    
+    %% ===== GEN 1+2+3+4 TABLES (minimal view) =====
+    
+    drivers {
+        int driver_id PK
+        string driver_ref
+        string name
+    }
+    
+    teams {
+        int team_id PK
+        string team_ref
+        string name
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int round
+    }
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+        string session_type
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+    }
+    
+    power_unit_suppliers {
+        int supplier_id PK
+        string name
+    }
+    
+    penalties {
+        int penalty_id PK
+        int race_id FK
+        int driver_id FK
+    }
+    
+    %% ===== NEW IN GENERATION 5 =====
+    
+    team_personnel {
+        int personnel_id PK
+        string name
+        string nationality
+        date dob
+        text bio
+    }
+    
+    team_roles {
+        int role_id PK
+        string role_name "Team Principal/Technical Director/Race Engineer"
+        string category "leadership/engineering/operations/mechanics"
+        text description
+    }
+    
+    team_members {
+        int member_id PK
+        int team_id FK
+        int personnel_id FK
+        int role_id FK
+        int season_id FK
+        date start_date
+        date end_date
+    }
+    
+    driver_teams {
+        int driver_team_id PK
+        int driver_id FK
+        int team_id FK
+        int season_id FK
+        int race_start FK "first race with team"
+        int race_end FK "last race (for mid-season changes)"
+    }
+    
+    driver_contracts {
+        int contract_id PK
+        int driver_id FK
+        int team_id FK
+        date contract_start
+        date contract_end
+        boolean has_option
+        int option_year
+        boolean is_loan
+        text notes
+    }
+    
+    power_unit_components {
+        int component_id PK
+        string component_type "ICE/TC/MGU-K/MGU-H/ES/CE/EX"
+        int season_allocation "max allowed per season"
+        text description
+    }
+    
+    driver_component_usage {
+        int usage_id PK
+        int driver_id FK
+        int season_id FK
+        int component_id FK
+        int component_number "which unit (1-4 for ICE)"
+        date first_used
+        date last_used
+        int races_used
+        string seal_number
+    }
+    
+    gearbox_usage {
+        int gearbox_id PK
+        int driver_id FK
+        int season_id FK
+        int gearbox_number "1-5 in pool"
+        date first_race
+        int consecutive_events "max 5 events"
+        boolean penalty_applied
+        text notes
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Gen 1+2+3+4 relationships (simplified)
+    seasons ||--o{ races : "contains"
+    races ||--o{ sessions : "has"
+    races ||--o{ race_results : "results"
+    drivers ||--o{ race_results : "drives"
+    teams ||--o{ race_results : "represents"
+    races ||--o{ penalties : "penalties"
+    drivers ||--o{ penalties : "received"
+    
+    %% Gen 5 new relationships
+    teams ||--o{ team_members : "employs"
+    team_personnel ||--o{ team_members : "person works"
+    team_roles ||--o{ team_members : "in role"
+    seasons ||--o{ team_members : "during season"
+    
+    drivers ||--o{ driver_teams : "drives for"
+    teams ||--o{ driver_teams : "employs driver"
+    seasons ||--o{ driver_teams : "in season"
+    races ||--o{ driver_teams : "race start"
+    races ||--o{ driver_teams : "race end"
+    
+    drivers ||--o{ driver_contracts : "signs contract"
+    teams ||--o{ driver_contracts : "with team"
+    
+    drivers ||--o{ driver_component_usage : "uses components"
+    seasons ||--o{ driver_component_usage : "in season"
+    power_unit_components ||--o{ driver_component_usage : "component type"
+    
+    drivers ||--o{ gearbox_usage : "uses gearbox"
+    seasons ||--o{ gearbox_usage : "in season"

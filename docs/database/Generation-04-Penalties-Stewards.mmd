@@ -1,0 +1,174 @@
+erDiagram
+    %% GENERATION 4: PENALTIES & STEWARD DECISIONS
+    %% Gen 1+2+3 + Penalties, steward decisions, license points, reprimands
+    
+    %% ===== GEN 1+2+3 TABLES (minimal view) =====
+    
+    drivers {
+        int driver_id PK
+        string driver_ref
+        string name
+    }
+    
+    teams {
+        int team_id PK
+        string team_ref
+        string name
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int round
+        string name
+    }
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+        string session_type
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        int position
+        int points
+    }
+    
+    qualifying_results {
+        int qualifying_result_id PK
+        int race_id FK
+        int driver_id FK
+        int position
+    }
+    
+    driver_standings {
+        int standing_id PK
+        int race_id FK
+        int driver_id FK
+        int points
+    }
+    
+    constructor_standings {
+        int standing_id PK
+        int race_id FK
+        int team_id FK
+        int points
+    }
+    
+    %% ===== NEW IN GENERATION 4 =====
+    
+    penalties {
+        int penalty_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        string penalty_type "time/grid/license_points/reprimand/fine"
+        string penalty_value "5s/10s/10-place/etc"
+        string infringement "track limits/collision/unsafe release"
+        int lap_number
+        datetime incident_time
+        int steward_decision_id FK
+    }
+    
+    steward_decisions {
+        int decision_id PK
+        int race_id FK
+        string incident_number "e.g., Incident 23"
+        datetime timestamp
+        text decision_text
+        text reasoning
+        string involved_drivers "comma-separated IDs"
+        string involved_teams
+        text evidence_reviewed
+        boolean right_of_review
+    }
+    
+    license_penalty_points {
+        int points_id PK
+        int driver_id FK
+        int penalty_id FK
+        int points_awarded "1-12 points"
+        date date_issued
+        date expiry_date "12 months after issue"
+        int current_total "running total"
+    }
+    
+    reprimands {
+        int reprimand_id PK
+        int driver_id FK
+        int race_id FK
+        string reprimand_type "sporting/technical"
+        int season_total "5th triggers penalty"
+        text reason
+        date date_issued
+    }
+    
+    grid_penalties_applied {
+        int grid_penalty_id PK
+        int driver_id FK
+        int race_id FK
+        int penalty_places
+        int qualifying_position
+        int grid_position "after penalties"
+        string penalty_reason "component change/previous incident"
+        datetime fia_notification_time
+    }
+    
+    stewards {
+        int steward_id PK
+        string name
+        string nationality
+        boolean is_driver_steward
+        text bio
+    }
+    
+    race_stewards {
+        int race_steward_id PK
+        int race_id FK
+        int steward_id FK
+        string role "steward/driver_steward/race_director"
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Gen 1+2+3 relationships (simplified)
+    seasons ||--o{ races : "contains"
+    races ||--o{ sessions : "has"
+    races ||--o{ race_results : "results"
+    races ||--o{ qualifying_results : "qualifying"
+    drivers ||--o{ race_results : "drives"
+    teams ||--o{ race_results : "represents"
+    drivers ||--o{ qualifying_results : "participates"
+    races ||--o{ driver_standings : "standings"
+    races ||--o{ constructor_standings : "standings"
+    drivers ||--o{ driver_standings : "position"
+    teams ||--o{ constructor_standings : "position"
+    
+    %% Gen 4 new relationships
+    races ||--o{ penalties : "penalties in race"
+    drivers ||--o{ penalties : "received by driver"
+    teams ||--o{ penalties : "received by team"
+    penalties }o--|| steward_decisions : "based on decision"
+    
+    races ||--o{ steward_decisions : "decisions in race"
+    
+    drivers ||--o{ license_penalty_points : "accumulates points"
+    penalties ||--o{ license_penalty_points : "results in points"
+    
+    drivers ||--o{ reprimands : "received reprimand"
+    races ||--o{ reprimands : "issued in race"
+    
+    drivers ||--o{ grid_penalties_applied : "applied to driver"
+    races ||--o{ grid_penalties_applied : "in race"
+    
+    races ||--o{ race_stewards : "officiated by"
+    stewards ||--o{ race_stewards : "officiates race"

@@ -1,0 +1,177 @@
+erDiagram
+    %% GENERATION 2: RACE PERFORMANCE & TIMING
+    %% Gen 1 + Lap times, sectors, pit stops, sessions
+    
+    %% ===== GEN 1 TABLES (simplified for clarity) =====
+    
+    drivers {
+        int driver_id PK
+        string driver_ref
+        string code
+        string forename
+        string surname
+        date dob
+        string nationality
+    }
+    
+    teams {
+        int team_id PK
+        string team_ref
+        string name
+        string nationality
+    }
+    
+    circuits {
+        int circuit_id PK
+        string circuit_ref
+        string name
+        string location
+        string country
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int circuit_id FK
+        int round
+        string name
+        date race_date
+    }
+    
+    qualifying_results {
+        int qualifying_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        int position
+        string q1_time
+        string q2_time
+        string q3_time
+        int q1_time_millis "NEW"
+        int q2_time_millis "NEW"
+        int q3_time_millis "NEW"
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        int grid_position
+        int position
+        string position_text
+        int points
+        int laps_completed
+        string time
+        int time_millis
+        string fastest_lap_time "NEW"
+        int fastest_lap_time_millis "NEW"
+        int fastest_lap_rank "NEW"
+        int status_id FK
+    }
+    
+    status {
+        int status_id PK
+        string status
+        string category
+    }
+    
+    driver_standings {
+        int standing_id PK
+        int race_id FK
+        int driver_id FK
+        int points
+        int position
+        int wins
+    }
+    
+    constructor_standings {
+        int standing_id PK
+        int race_id FK
+        int team_id FK
+        int points
+        int position
+        int wins
+    }
+    
+    %% ===== NEW IN GENERATION 2 =====
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+        string session_type "FP1/FP2/FP3/Q/R"
+        datetime session_start
+        datetime session_end
+        string session_status "scheduled/started/finished"
+    }
+    
+    lap_times {
+        int lap_time_id PK
+        int race_id FK
+        int session_id FK
+        int driver_id FK
+        int lap_number
+        string lap_time "MM:SS.mmm"
+        int lap_time_millis
+        int position "Position after this lap"
+        datetime session_time
+    }
+    
+    sector_times {
+        int sector_time_id PK
+        int lap_time_id FK
+        int race_id FK
+        int driver_id FK
+        int lap_number
+        int sector_number "1/2/3"
+        string sector_time
+        int sector_time_millis
+        datetime session_time
+    }
+    
+    pit_stops {
+        int pit_stop_id PK
+        int race_id FK
+        int driver_id FK
+        int stop_number
+        int lap_number
+        datetime pit_in_time
+        datetime pit_out_time
+        int duration_millis
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Gen 1 relationships
+    seasons ||--o{ races : "contains"
+    circuits ||--o{ races : "hosts"
+    races ||--o{ qualifying_results : "has qualifying"
+    races ||--o{ race_results : "has results"
+    drivers ||--o{ qualifying_results : "participates"
+    drivers ||--o{ race_results : "drives"
+    teams ||--o{ qualifying_results : "represents"
+    teams ||--o{ race_results : "represents"
+    race_results }o--|| status : "finishing status"
+    races ||--o{ driver_standings : "standings after"
+    races ||--o{ constructor_standings : "standings after"
+    drivers ||--o{ driver_standings : "driver position"
+    teams ||--o{ constructor_standings : "team position"
+    
+    %% Gen 2 new relationships
+    races ||--o{ sessions : "has sessions"
+    
+    sessions ||--o{ lap_times : "recorded in"
+    races ||--o{ lap_times : "part of race"
+    drivers ||--o{ lap_times : "set by"
+    
+    lap_times ||--o{ sector_times : "divided into sectors"
+    races ||--o{ sector_times : "part of race"
+    drivers ||--o{ sector_times : "set by"
+    
+    races ||--o{ pit_stops : "occurred in"
+    drivers ||--o{ pit_stops : "performed by"s

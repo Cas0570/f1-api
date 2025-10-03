@@ -1,0 +1,216 @@
+erDiagram
+    %% GENERATION 3: TECHNICAL REGULATIONS & STRATEGY
+    %% Gen 1+2 + Power units, tires, car specs, points systems
+    
+    %% ===== GEN 1+2 TABLES (simplified) =====
+    
+    drivers {
+        int driver_id PK
+        string driver_ref
+        string code
+        string name
+    }
+    
+    teams {
+        int team_id PK
+        string team_ref
+        string name
+    }
+    
+    circuits {
+        int circuit_id PK
+        string circuit_ref
+        string name
+    }
+    
+    seasons {
+        int season_id PK
+        int year
+        int points_system_id FK "NEW - links to points system"
+    }
+    
+    races {
+        int race_id PK
+        int season_id FK
+        int circuit_id FK
+        int round
+        string name
+        date race_date
+    }
+    
+    sessions {
+        int session_id PK
+        int race_id FK
+        string session_type
+    }
+    
+    qualifying_results {
+        int qualifying_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        int position
+    }
+    
+    race_results {
+        int race_result_id PK
+        int race_id FK
+        int driver_id FK
+        int team_id FK
+        int position
+        int points
+        int status_id FK
+    }
+    
+    status {
+        int status_id PK
+        string status
+    }
+    
+    driver_standings {
+        int standing_id PK
+        int race_id FK
+        int driver_id FK
+        int points
+    }
+    
+    constructor_standings {
+        int standing_id PK
+        int race_id FK
+        int team_id FK
+        int points
+    }
+    
+    lap_times {
+        int lap_time_id PK
+        int session_id FK
+        int driver_id FK
+        int lap_number
+    }
+    
+    sector_times {
+        int sector_time_id PK
+        int lap_time_id FK
+    }
+    
+    pit_stops {
+        int pit_stop_id PK
+        int race_id FK
+        int driver_id FK
+        int stop_number
+        string tire_compound_in "NEW - what tires put on"
+        string tire_compound_out "NEW - what tires taken off"
+    }
+    
+    %% ===== NEW IN GENERATION 3 =====
+    
+    power_unit_suppliers {
+        int supplier_id PK
+        string name "Mercedes/Ferrari/Honda/Renault"
+        string manufacturer_name
+    }
+    
+    team_power_units {
+        int team_power_unit_id PK
+        int team_id FK
+        int supplier_id FK
+        int season_id FK
+    }
+    
+    tire_compounds {
+        int compound_id PK
+        string compound_code "C0/C1/C2/C3/C4/C5/C6/INT/WET"
+        string color_name "soft/medium/hard"
+        string color_hex
+        string compound_type "dry/intermediate/wet"
+    }
+    
+    tire_allocation {
+        int allocation_id PK
+        int race_id FK
+        int compound_id FK
+        int sets_available
+        string compound_race_designation "soft/medium/hard for weekend"
+    }
+    
+    tire_stints {
+        int stint_id PK
+        int race_id FK
+        int driver_id FK
+        int stint_number
+        int compound_id FK
+        int start_lap
+        int end_lap
+        int tire_age_start "laps already on tire"
+        boolean is_new
+    }
+    
+    car_specifications {
+        int spec_id PK
+        int season_id FK
+        int team_id FK
+        int minimum_mass_kg
+        int width_mm
+        int height_mm
+        int wheelbase_mm
+        string chassis_name
+        string engine_name
+    }
+    
+    points_systems {
+        int points_system_id PK
+        string system_name "e.g., 1991-2002, 2010-current"
+        int year_start
+        int year_end
+        boolean fastest_lap_point
+        text description
+    }
+    
+    points_allocations {
+        int allocation_id PK
+        int points_system_id FK
+        int position
+        int points
+        string special_rule "e.g., must finish top 10"
+    }
+    
+    %% ===== RELATIONSHIPS =====
+    
+    %% Gen 1+2 relationships (simplified)
+    seasons ||--o{ races : "contains"
+    circuits ||--o{ races : "hosts"
+    races ||--o{ sessions : "has sessions"
+    races ||--o{ qualifying_results : "has"
+    races ||--o{ race_results : "has"
+    drivers ||--o{ qualifying_results : "participates"
+    drivers ||--o{ race_results : "drives"
+    teams ||--o{ qualifying_results : "represents"
+    teams ||--o{ race_results : "represents"
+    race_results }o--|| status : "status"
+    races ||--o{ driver_standings : "standings"
+    races ||--o{ constructor_standings : "standings"
+    drivers ||--o{ driver_standings : "position"
+    teams ||--o{ constructor_standings : "position"
+    sessions ||--o{ lap_times : "recorded"
+    drivers ||--o{ lap_times : "set by"
+    lap_times ||--o{ sector_times : "sectors"
+    races ||--o{ pit_stops : "occurred"
+    drivers ||--o{ pit_stops : "by driver"
+    
+    %% Gen 3 new relationships
+    teams ||--o{ team_power_units : "uses engine"
+    power_unit_suppliers ||--o{ team_power_units : "supplies"
+    seasons ||--o{ team_power_units : "in season"
+    
+    races ||--o{ tire_allocation : "compounds available"
+    tire_compounds ||--o{ tire_allocation : "compound type"
+    
+    races ||--o{ tire_stints : "stints in race"
+    drivers ||--o{ tire_stints : "driven by"
+    tire_compounds ||--o{ tire_stints : "using compound"
+    
+    seasons ||--o{ car_specifications : "regulations"
+    teams ||--o{ car_specifications : "car built by"
+    
+    seasons }o--|| points_systems : "uses system"
+    points_systems ||--o{ points_allocations : "defines points"
