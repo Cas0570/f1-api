@@ -115,3 +115,48 @@ export interface RaceQueryParams extends PaginationParams {
   season?: number;
   circuit?: string; // circuit ref
 }
+
+// Race Result Types
+
+export interface RaceResultResponse {
+  position: number | null;
+  positionText: string;
+  driver: {
+    id: number;
+    driverRef: string;
+    code: string | null;
+    forename: string;
+    surname: string;
+  };
+  team: {
+    id: number;
+    teamRef: string;
+    name: string;
+  };
+  gridPosition: number;
+  laps: number;
+  points: number;
+  time: string | null;
+  status: string;
+}
+
+// Qualifying Result Types
+
+export interface QualifyingResultResponse {
+  position: number;
+  driver: {
+    id: number;
+    driverRef: string;
+    code: string | null;
+    forename: string;
+    surname: string;
+  };
+  team: {
+    id: number;
+    teamRef: string;
+    name: string;
+  };
+  q1Time: string | null;
+  q2Time: string | null;
+  q3Time: string | null;
+}

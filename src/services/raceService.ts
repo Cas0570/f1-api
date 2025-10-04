@@ -3,6 +3,8 @@ import type {
   RaceResponse,
   RaceDetailResponse,
   RaceQueryParams,
+  RaceResultResponse,
+  QualifyingResultResponse,
   PaginationMeta,
   CircuitResponse,
 } from '../types/api';
@@ -222,6 +224,96 @@ export class RaceService {
       alt: circuit.alt,
       url: circuit.url,
     };
+  }
+
+  /**
+   * Get race results for a specific race
+   */
+  async getRaceResults(raceId: number): Promise<RaceResultResponse[] | null> {
+    // First check if race exists
+    const race = await prisma.race.findUnique({
+      where: { id: raceId },
+    });
+
+    if (!race) {
+      return null;
+    }
+
+    const results = await prisma.raceResult.findMany({
+      where: { raceId },
+      include: {
+        driver: true,
+        team: true,
+        status: true,
+      },
+      orderBy: { position: 'asc' },
+    });
+
+    return results.map((result) => ({
+      position: result.position,
+      positionText: result.positionText,
+      driver: {
+        id: result.driver.id,
+        driverRef: result.driver.driverRef,
+        code: result.driver.code,
+        forename: result.driver.forename,
+        surname: result.driver.surname,
+      },
+      team: {
+        id: result.team.id,
+        teamRef: result.team.teamRef,
+        name: result.team.name,
+      },
+      gridPosition: result.gridPosition,
+      laps: result.laps,
+      points: result.points,
+      time: result.time,
+      status: result.status.status,
+    }));
+  }
+
+  /**
+   * Get qualifying results for a specific race
+   */
+  async getQualifyingResults(
+    raceId: number
+  ): Promise<QualifyingResultResponse[] | null> {
+    // First check if race exists
+    const race = await prisma.race.findUnique({
+      where: { id: raceId },
+    });
+
+    if (!race) {
+      return null;
+    }
+
+    const results = await prisma.qualifyingResult.findMany({
+      where: { raceId },
+      include: {
+        driver: true,
+        team: true,
+      },
+      orderBy: { position: 'asc' },
+    });
+
+    return results.map((result) => ({
+      position: result.position,
+      driver: {
+        id: result.driver.id,
+        driverRef: result.driver.driverRef,
+        code: result.driver.code,
+        forename: result.driver.forename,
+        surname: result.driver.surname,
+      },
+      team: {
+        id: result.team.id,
+        teamRef: result.team.teamRef,
+        name: result.team.name,
+      },
+      q1Time: result.q1Time,
+      q2Time: result.q2Time,
+      q3Time: result.q3Time,
+    }));
   }
 }
 

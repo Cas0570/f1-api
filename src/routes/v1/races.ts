@@ -214,4 +214,114 @@ export async function raceRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  /**
+   * GET /api/v1/races/:id/results
+   * Get race results for a specific race
+   */
+  fastify.get(
+    '/:id/results',
+    async (
+      request: FastifyRequest<{ Params: { id: string } }>,
+      reply: FastifyReply
+    ) => {
+      try {
+        // Validate ID parameter
+        const validationResult = raceIdParamSchema.safeParse(request.params);
+
+        if (!validationResult.success) {
+          return reply.status(400).send({
+            status: 'error',
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid race ID',
+            },
+          } as ApiResponse<never>);
+        }
+
+        const { id } = validationResult.data;
+
+        const results = await raceService.getRaceResults(id);
+
+        if (results === null) {
+          return reply.status(404).send({
+            status: 'error',
+            error: {
+              code: 'NOT_FOUND',
+              message: `Race with ID ${id} not found`,
+            },
+          } as ApiResponse<never>);
+        }
+
+        return reply.status(200).send({
+          status: 'success',
+          data: results,
+        } as ApiResponse<typeof results>);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          status: 'error',
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to fetch race results',
+          },
+        } as ApiResponse<never>);
+      }
+    }
+  );
+
+  /**
+   * GET /api/v1/races/:id/qualifying
+   * Get qualifying results for a specific race
+   */
+  fastify.get(
+    '/:id/qualifying',
+    async (
+      request: FastifyRequest<{ Params: { id: string } }>,
+      reply: FastifyReply
+    ) => {
+      try {
+        // Validate ID parameter
+        const validationResult = raceIdParamSchema.safeParse(request.params);
+
+        if (!validationResult.success) {
+          return reply.status(400).send({
+            status: 'error',
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid race ID',
+            },
+          } as ApiResponse<never>);
+        }
+
+        const { id } = validationResult.data;
+
+        const results = await raceService.getQualifyingResults(id);
+
+        if (results === null) {
+          return reply.status(404).send({
+            status: 'error',
+            error: {
+              code: 'NOT_FOUND',
+              message: `Race with ID ${id} not found`,
+            },
+          } as ApiResponse<never>);
+        }
+
+        return reply.status(200).send({
+          status: 'success',
+          data: results,
+        } as ApiResponse<typeof results>);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          status: 'error',
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to fetch qualifying results',
+          },
+        } as ApiResponse<never>);
+      }
+    }
+  );
 }
