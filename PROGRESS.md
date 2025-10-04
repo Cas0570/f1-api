@@ -36,7 +36,7 @@
 
 ### In Progress
 
-- [ ] Run all tests to verify everything passes
+- Nothing! Generation 1 is 100% complete! 🎊
 
 ### Blocked/Issues
 
