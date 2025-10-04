@@ -5,13 +5,17 @@ A comprehensive REST API providing historical Formula 1 data from 1950 to presen
 ## 🏎️ Quick Start
 
 \`\`\`bash
+
 # Install dependencies
+
 npm install
 
 # Setup database
+
 npm run db:push
 
 # Start development server
+
 npm run dev
 \`\`\`
 
@@ -20,6 +24,7 @@ Visit http://localhost:3000/api/v1 for API info.
 ## 📚 Documentation
 
 See the [docs/](./docs/) folder for complete documentation:
+
 - [Setup Guide](./docs/setup/Project-Setup-Guide.md)
 - [Database Schema](./docs/database/)
 - [Implementation Roadmap](./docs/planning/Implementation-Roadmap.md)

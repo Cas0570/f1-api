@@ -47,11 +47,11 @@ async function registerPlugins() {
   });
 }
 
-// Import routes
-import { v1Routes } from './routes/v1';
-
 // Setup routes
 async function setupRoutes() {
+  // Import routes
+  const { v1Routes } = await import('./routes/v1/index');
+
   // Root endpoint
   fastify.get('/', async () => {
     return {
@@ -94,18 +94,24 @@ async function setupRoutes() {
       generation: 1,
       endpoints: {
         drivers: '/api/v1/drivers',
+        driverById: '/api/v1/drivers/:id',
+        driverByRef: '/api/v1/drivers/ref/:ref',
+        driverNationalities: '/api/v1/drivers/nationalities',
         teams: '/api/v1/teams',
-        circuits: '/api/v1/circuits',
-        seasons: '/api/v1/seasons',
-        races: '/api/v1/races',
+        teamById: '/api/v1/teams/:id',
+        teamByRef: '/api/v1/teams/ref/:ref',
+        teamNationalities: '/api/v1/teams/nationalities',
+        circuits: '/api/v1/circuits (coming soon)',
+        seasons: '/api/v1/seasons (coming soon)',
+        races: '/api/v1/races (coming soon)',
         health: '/health',
       },
-      documentation: 'https://github.com/Cas0570/f1-api',
+      documentation: 'https://github.com/your-repo/f1-api',
     };
   });
 
-  // Register API v1 routes
-  await fastify.register(v1Routes, { prefix: '/api/v1' });
+  // Register v1 routes
+  fastify.register(v1Routes, { prefix: '/api/v1' });
 
   // 404 handler
   fastify.setNotFoundHandler((request, reply) => {
