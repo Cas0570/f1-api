@@ -32,10 +32,14 @@
 - [x] Circuit service layer implemented
 - [x] Circuit routes created (4 endpoints)
 - [x] Circuits registered in v1 routes
+- [x] All circuit endpoints tested and working
+- [x] Season service layer implemented
+- [x] Season routes created (3 endpoints)
+- [x] Seasons registered in v1 routes
 
 ### In Progress
 
-- [ ] Testing circuits endpoints
+- [ ] Testing seasons endpoints
 
 ### Blocked/Issues
 
@@ -45,11 +49,11 @@
 
 ## 🎯 Next Steps (Prioritized)
 
-1. Test circuits endpoints with curl/Postman
-2. Create seasons endpoint (GET /api/v1/seasons)
-3. Create races endpoint (GET /api/v1/races)
-4. Create race results endpoints
-5. Create qualifying results endpoints
+1. Test seasons endpoints with curl/Postman
+2. Create races endpoint (GET /api/v1/races)
+3. Create race results endpoints
+4. Create qualifying results endpoints
+5. Create standings endpoints
 
 ---
 
@@ -157,17 +161,17 @@
 
 ---
 
-## 🏗️ Generation 1 Progress: 30% Complete
+## 🏗️ Generation 1 Progress: 40% Complete
 
 **✅ Completed Endpoints:**
 
 - Drivers API (4 endpoints: list, get by ID, get by ref, nationalities)
 - Teams API (4 endpoints: list, get by ID, get by ref, nationalities)
 - Circuits API (4 endpoints: list, get by ID, get by ref, countries)
+- Seasons API (3 endpoints: list, get by ID, get by year)
 
 **⏳ Remaining Endpoints:**
 
-- Seasons (0%)
 - Races (0%)
 - Qualifying Results (0%)
 - Race Results (0%)
