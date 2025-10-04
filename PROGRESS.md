@@ -19,27 +19,20 @@
 - [x] Main application structure created (src/index.ts)
 - [x] Server running successfully with health checks
 - [x] API types and interfaces defined
-- [x] Driver service layer implemented
-- [x] Driver routes created (4 endpoints)
-- [x] V1 routes registered in main app
-- [x] Test data seed script created and executed
-- [x] All driver endpoints tested and working
+- [x] Driver service layer implemented (4 endpoints)
+- [x] Team service layer implemented (4 endpoints)
+- [x] Circuit service layer implemented (4 endpoints)
+- [x] Season service layer implemented (3 endpoints)
+- [x] All basic endpoints tested and working
 - [x] Route ordering issue fixed
-- [x] Team service layer implemented
-- [x] Team routes created (4 endpoints)
-- [x] Teams registered in v1 routes
-- [x] All team endpoints tested and working
-- [x] Circuit service layer implemented
-- [x] Circuit routes created (4 endpoints)
-- [x] Circuits registered in v1 routes
-- [x] All circuit endpoints tested and working
-- [x] Season service layer implemented
-- [x] Season routes created (3 endpoints)
-- [x] Seasons registered in v1 routes
+- [x] Test data seed script created and executed
+- [x] Race service layer implemented
+- [x] Race routes created (3 endpoints)
+- [x] Races registered in v1 routes
 
 ### In Progress
 
-- [ ] Testing seasons endpoints
+- [ ] Testing races endpoints
 
 ### Blocked/Issues
 
@@ -49,11 +42,12 @@
 
 ## 🎯 Next Steps (Prioritized)
 
-1. Test seasons endpoints with curl/Postman
-2. Create races endpoint (GET /api/v1/races)
-3. Create race results endpoints
-4. Create qualifying results endpoints
-5. Create standings endpoints
+1. Test races endpoints with curl/Postman
+2. Create race results endpoint (GET /api/v1/races/:id/results)
+3. Create qualifying results endpoint (GET /api/v1/races/:id/qualifying)
+4. Create driver standings endpoint
+5. Create constructor standings endpoint
+6. Gen 1 MVP complete! 🎉
 
 ---
 
@@ -161,7 +155,7 @@
 
 ---
 
-## 🏗️ Generation 1 Progress: 40% Complete
+## 🏗️ Generation 1 Progress: 50% Complete
 
 **✅ Completed Endpoints:**
 
@@ -169,10 +163,11 @@
 - Teams API (4 endpoints: list, get by ID, get by ref, nationalities)
 - Circuits API (4 endpoints: list, get by ID, get by ref, countries)
 - Seasons API (3 endpoints: list, get by ID, get by year)
+- Races API (3 endpoints: list, get by ID, get by season)
 
 **⏳ Remaining Endpoints:**
 
-- Races (0%)
-- Qualifying Results (0%)
-- Race Results (0%)
-- Standings (0%)
+- Race Results (0%) - nested under /races/:id/results
+- Qualifying Results (0%) - nested under /races/:id/qualifying
+- Driver Standings (0%)
+- Constructor Standings (0%)

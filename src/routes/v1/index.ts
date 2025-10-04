@@ -8,6 +8,7 @@ import { driverRoutes } from './drivers';
 import { teamRoutes } from './teams';
 import { circuitRoutes } from './circuits';
 import { seasonRoutes } from './seasons';
+import { raceRoutes } from './races';
 
 /**
  * Register all v1 routes
@@ -25,6 +26,6 @@ export async function v1Routes(fastify: FastifyInstance) {
   // Register season routes
   fastify.register(seasonRoutes, { prefix: '/seasons' });
 
-  // Future routes will be added here:
-  // fastify.register(raceRoutes, { prefix: '/races' });
+  // Register race routes
+  fastify.register(raceRoutes, { prefix: '/races' });
 }

@@ -102,3 +102,16 @@ export interface RaceResponse {
   circuit: CircuitResponse;
   url: string;
 }
+
+export interface RaceDetailResponse extends RaceResponse {
+  stats?: {
+    totalDrivers: number;
+    finishers: number;
+    dnfs: number;
+  };
+}
+
+export interface RaceQueryParams extends PaginationParams {
+  season?: number;
+  circuit?: string; // circuit ref
+}
