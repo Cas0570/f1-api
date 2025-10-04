@@ -1,32 +1,14 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
 import {
   circuitService,
   CircuitQueryParams,
 } from '../../services/circuitService';
 import type { ApiResponse } from '../../types/api';
-
-// Validation schemas
-const circuitQuerySchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 1)),
-  limit: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 20)),
-  country: z.string().optional(),
-  search: z.string().optional(),
-});
-
-const circuitIdParamSchema = z.object({
-  id: z.string().transform((val) => parseInt(val, 10)),
-});
-
-const circuitRefParamSchema = z.object({
-  ref: z.string().min(1),
-});
+import {
+  circuitQuerySchema,
+  idParamSchema,
+  refParamSchema,
+} from '../../utils/validation';
 
 export async function circuitRoutes(fastify: FastifyInstance) {
   /**
@@ -114,7 +96,7 @@ export async function circuitRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate ID parameter
-        const validationResult = circuitIdParamSchema.safeParse(request.params);
+        const validationResult = idParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({
@@ -180,9 +162,7 @@ export async function circuitRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate ref parameter
-        const validationResult = circuitRefParamSchema.safeParse(
-          request.params
-        );
+        const validationResult = refParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({

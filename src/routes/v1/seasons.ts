@@ -1,27 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
 import { seasonService, SeasonQueryParams } from '../../services/seasonService';
 import type { ApiResponse } from '../../types/api';
-
-// Validation schemas
-const seasonQuerySchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 1)),
-  limit: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 20)),
-});
-
-const seasonIdParamSchema = z.object({
-  id: z.string().transform((val) => parseInt(val, 10)),
-});
-
-const seasonYearParamSchema = z.object({
-  year: z.string().transform((val) => parseInt(val, 10)),
-});
+import {
+  seasonQuerySchema,
+  idParamSchema,
+  yearParamSchema,
+} from '../../utils/validation';
 
 export async function seasonRoutes(fastify: FastifyInstance) {
   /**
@@ -84,7 +68,7 @@ export async function seasonRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate ID parameter
-        const validationResult = seasonIdParamSchema.safeParse(request.params);
+        const validationResult = idParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({
@@ -150,9 +134,7 @@ export async function seasonRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate year parameter
-        const validationResult = seasonYearParamSchema.safeParse(
-          request.params
-        );
+        const validationResult = yearParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({

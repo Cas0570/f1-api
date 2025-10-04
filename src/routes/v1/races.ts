@@ -1,32 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
 import { raceService } from '../../services/raceService';
 import type { ApiResponse, RaceQueryParams } from '../../types/api';
-
-// Validation schemas
-const raceQuerySchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 1)),
-  limit: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 20)),
-  season: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : undefined)),
-  circuit: z.string().optional(),
-});
-
-const raceIdParamSchema = z.object({
-  id: z.string().transform((val) => parseInt(val, 10)),
-});
-
-const seasonYearParamSchema = z.object({
-  year: z.string().transform((val) => parseInt(val, 10)),
-});
+import {
+  raceQuerySchema,
+  idParamSchema,
+  yearParamSchema,
+} from '../../utils/validation';
 
 export async function raceRoutes(fastify: FastifyInstance) {
   /**
@@ -89,9 +68,7 @@ export async function raceRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate year parameter
-        const validationResult = seasonYearParamSchema.safeParse(
-          request.params
-        );
+        const validationResult = yearParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({
@@ -161,7 +138,7 @@ export async function raceRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate ID parameter
-        const validationResult = raceIdParamSchema.safeParse(request.params);
+        const validationResult = idParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({
@@ -227,7 +204,7 @@ export async function raceRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate ID parameter
-        const validationResult = raceIdParamSchema.safeParse(request.params);
+        const validationResult = idParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({
@@ -282,7 +259,7 @@ export async function raceRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate ID parameter
-        const validationResult = raceIdParamSchema.safeParse(request.params);
+        const validationResult = idParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({

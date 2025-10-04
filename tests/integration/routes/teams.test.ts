@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify from 'fastify';
 import { v1Routes } from '../../../src/routes/v1/index';
 
-describe('Driver Routes', () => {
+describe('Team Routes', () => {
   let fastify: ReturnType<typeof Fastify>;
 
   beforeAll(async () => {
@@ -15,11 +15,11 @@ describe('Driver Routes', () => {
     await fastify.close();
   });
 
-  describe('GET /api/v1/drivers', () => {
-    it('should return 200 and list of drivers', async () => {
+  describe('GET /api/v1/teams', () => {
+    it('should return 200 and list of teams', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers',
+        url: '/api/v1/teams',
       });
 
       expect(response.statusCode).toBe(200);
@@ -33,7 +33,7 @@ describe('Driver Routes', () => {
     it('should respect pagination query parameters', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?page=1&limit=5',
+        url: '/api/v1/teams?page=1&limit=5',
       });
 
       expect(response.statusCode).toBe(200);
@@ -46,20 +46,20 @@ describe('Driver Routes', () => {
     it('should filter by nationality', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?nationality=British',
+        url: '/api/v1/teams?nationality=Italian',
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      body.data.forEach((driver: any) => {
-        expect(driver.nationality).toBe('British');
+      body.data.forEach((team: any) => {
+        expect(team.nationality).toBe('Italian');
       });
     });
 
     it('should search by name', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?search=hamilton',
+        url: '/api/v1/teams?search=ferrari',
       });
 
       expect(response.statusCode).toBe(200);
@@ -70,7 +70,7 @@ describe('Driver Routes', () => {
     it('should return 400 for invalid pagination parameters', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?page=invalid',
+        url: '/api/v1/teams?page=invalid',
       });
 
       expect(response.statusCode).toBe(400);
@@ -81,29 +81,31 @@ describe('Driver Routes', () => {
     it('should handle negative page numbers', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?page=-1',
+        url: '/api/v1/teams?page=-1',
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
+      // Service should coerce to page 1
       expect(body.meta.page).toBe(1);
     });
 
     it('should handle limit exceeding maximum', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?limit=200',
+        url: '/api/v1/teams?limit=200',
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
+      // Service should cap at 100
       expect(body.meta.limit).toBeLessThanOrEqual(100);
     });
 
     it('should return empty array for non-existent nationality', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?nationality=NonExistentNationality',
+        url: '/api/v1/teams?nationality=NonExistentNationality',
       });
 
       expect(response.statusCode).toBe(200);
@@ -112,10 +114,10 @@ describe('Driver Routes', () => {
       expect(body.meta.total).toBe(0);
     });
 
-    it('should return drivers sorted by surname then forename', async () => {
+    it('should return teams sorted by name', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?limit=10',
+        url: '/api/v1/teams?limit=10',
       });
 
       expect(response.statusCode).toBe(200);
@@ -123,91 +125,37 @@ describe('Driver Routes', () => {
 
       if (body.data.length > 1) {
         for (let i = 1; i < body.data.length; i++) {
-          const prev = body.data[i - 1];
-          const curr = body.data[i];
-          const prevName = `${prev.surname} ${prev.forename}`;
-          const currName = `${curr.surname} ${curr.forename}`;
-          expect(currName >= prevName).toBe(true);
+          expect(body.data[i].name >= body.data[i - 1].name).toBe(true);
         }
-      }
-    });
-
-    it('should include all required driver fields', async () => {
-      const response = await fastify.inject({
-        method: 'GET',
-        url: '/api/v1/drivers?limit=1',
-      });
-
-      const body = JSON.parse(response.body);
-      if (body.data.length > 0) {
-        const driver = body.data[0];
-        expect(driver).toHaveProperty('id');
-        expect(driver).toHaveProperty('driverRef');
-        expect(driver).toHaveProperty('forename');
-        expect(driver).toHaveProperty('surname');
-        expect(driver).toHaveProperty('fullName');
-        expect(driver).toHaveProperty('dob');
-        expect(driver).toHaveProperty('nationality');
-        expect(driver).toHaveProperty('url');
-      }
-    });
-
-    it('should format fullName correctly', async () => {
-      const response = await fastify.inject({
-        method: 'GET',
-        url: '/api/v1/drivers?limit=1',
-      });
-
-      const body = JSON.parse(response.body);
-      if (body.data.length > 0) {
-        const driver = body.data[0];
-        expect(driver.fullName).toBe(`${driver.forename} ${driver.surname}`);
       }
     });
   });
 
-  describe('GET /api/v1/drivers/:id', () => {
-    it('should return 200 and driver details for valid ID', async () => {
+  describe('GET /api/v1/teams/:id', () => {
+    it('should return 200 and team details for valid ID', async () => {
+      // First get a team to test with
       const listResponse = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?limit=1',
+        url: '/api/v1/teams?limit=1',
       });
 
       const listBody = JSON.parse(listResponse.body);
       if (listBody.data.length === 0) {
-        return;
+        return; // Skip if no teams
       }
 
-      const driverId = listBody.data[0].id;
+      const teamId = listBody.data[0].id;
 
       const response = await fastify.inject({
         method: 'GET',
-        url: `/api/v1/drivers/${driverId}`,
+        url: `/api/v1/teams/${teamId}`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.status).toBe('success');
-      expect(body.data.id).toBe(driverId);
+      expect(body.data.id).toBe(teamId);
       expect(body.data).toHaveProperty('stats');
-    });
-
-    it('should include complete driver statistics', async () => {
-      const listResponse = await fastify.inject({
-        method: 'GET',
-        url: '/api/v1/drivers?limit=1',
-      });
-
-      const listBody = JSON.parse(listResponse.body);
-      if (listBody.data.length === 0) return;
-
-      const driverId = listBody.data[0].id;
-      const response = await fastify.inject({
-        method: 'GET',
-        url: `/api/v1/drivers/${driverId}`,
-      });
-
-      const body = JSON.parse(response.body);
       expect(body.data.stats).toHaveProperty('races');
       expect(body.data.stats).toHaveProperty('wins');
       expect(body.data.stats).toHaveProperty('podiums');
@@ -215,10 +163,10 @@ describe('Driver Routes', () => {
       expect(body.data.stats).toHaveProperty('championships');
     });
 
-    it('should return 404 for non-existent driver', async () => {
+    it('should return 404 for non-existent team', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/999999',
+        url: '/api/v1/teams/999999',
       });
 
       expect(response.statusCode).toBe(404);
@@ -230,7 +178,7 @@ describe('Driver Routes', () => {
     it('should return 400 for invalid ID format', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/invalid',
+        url: '/api/v1/teams/invalid',
       });
 
       expect(response.statusCode).toBe(400);
@@ -241,70 +189,71 @@ describe('Driver Routes', () => {
     it('should return 400 for ID out of range', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/9999999999',
+        url: '/api/v1/teams/9999999999',
       });
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
+      expect(body.status).toBe('error');
       expect(body.error.code).toBe('INVALID_ID');
     });
 
-    it('should validate statistics are reasonable', async () => {
+    it('should include all required team fields', async () => {
       const listResponse = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?limit=1',
+        url: '/api/v1/teams?limit=1',
       });
 
       const listBody = JSON.parse(listResponse.body);
       if (listBody.data.length === 0) return;
 
-      const driverId = listBody.data[0].id;
+      const teamId = listBody.data[0].id;
       const response = await fastify.inject({
         method: 'GET',
-        url: `/api/v1/drivers/${driverId}`,
+        url: `/api/v1/teams/${teamId}`,
       });
 
       const body = JSON.parse(response.body);
-      const stats = body.data.stats;
-
-      expect(stats.wins).toBeLessThanOrEqual(stats.races);
-      expect(stats.podiums).toBeLessThanOrEqual(stats.races);
-      expect(stats.poles).toBeLessThanOrEqual(stats.races);
-      expect(stats.wins).toBeLessThanOrEqual(stats.podiums);
+      expect(body.data).toHaveProperty('id');
+      expect(body.data).toHaveProperty('teamRef');
+      expect(body.data).toHaveProperty('name');
+      expect(body.data).toHaveProperty('nationality');
+      expect(body.data).toHaveProperty('url');
     });
   });
 
-  describe('GET /api/v1/drivers/ref/:ref', () => {
-    it('should return 200 and driver details for valid reference', async () => {
+  describe('GET /api/v1/teams/ref/:ref', () => {
+    it('should return 200 and team details for valid reference', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/ref/hamilton',
+        url: '/api/v1/teams/ref/ferrari',
       });
 
       if (response.statusCode === 200) {
         const body = JSON.parse(response.body);
         expect(body.status).toBe('success');
-        expect(body.data.driverRef).toBe('hamilton');
+        expect(body.data.teamRef).toBe('ferrari');
         expect(body.data).toHaveProperty('stats');
       }
+      // If 404, ferrari doesn't exist in test data - that's ok
     });
 
-    it('should return 200 for verstappen reference', async () => {
+    it('should return 200 for mercedes reference', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/ref/max_verstappen',
+        url: '/api/v1/teams/ref/mercedes',
       });
 
       if (response.statusCode === 200) {
         const body = JSON.parse(response.body);
-        expect(body.data.driverRef).toBe('max_verstappen');
+        expect(body.data.teamRef).toBe('mercedes');
       }
     });
 
     it('should return 404 for non-existent reference', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/ref/nonexistentdriver',
+        url: '/api/v1/teams/ref/nonexistentteam',
       });
 
       expect(response.statusCode).toBe(404);
@@ -316,7 +265,7 @@ describe('Driver Routes', () => {
     it('should return 400 for empty reference', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/ref/',
+        url: '/api/v1/teams/ref/',
       });
 
       expect(response.statusCode).toBe(400);
@@ -325,39 +274,19 @@ describe('Driver Routes', () => {
     it('should handle case-sensitive references', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/ref/HAMILTON',
+        url: '/api/v1/teams/ref/FERRARI',
       });
 
+      // Should return 404 as teamRef is case-sensitive
       expect(response.statusCode).toBe(404);
-    });
-
-    it('should include statistics when found', async () => {
-      const listResponse = await fastify.inject({
-        method: 'GET',
-        url: '/api/v1/drivers?limit=1',
-      });
-
-      const listBody = JSON.parse(listResponse.body);
-      if (listBody.data.length === 0) return;
-
-      const driverRef = listBody.data[0].driverRef;
-      const response = await fastify.inject({
-        method: 'GET',
-        url: `/api/v1/drivers/ref/${driverRef}`,
-      });
-
-      if (response.statusCode === 200) {
-        const body = JSON.parse(response.body);
-        expect(body.data).toHaveProperty('stats');
-      }
     });
   });
 
-  describe('GET /api/v1/drivers/nationalities', () => {
+  describe('GET /api/v1/teams/nationalities', () => {
     it('should return 200 and list of nationalities', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/nationalities',
+        url: '/api/v1/teams/nationalities',
       });
 
       expect(response.statusCode).toBe(200);
@@ -369,15 +298,17 @@ describe('Driver Routes', () => {
     it('should return unique sorted nationalities', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/nationalities',
+        url: '/api/v1/teams/nationalities',
       });
 
       const body = JSON.parse(response.body);
       const nationalities = body.data;
 
+      // Check uniqueness
       const uniqueNationalities = [...new Set(nationalities)];
       expect(nationalities.length).toBe(uniqueNationalities.length);
 
+      // Check sorting (if more than 1)
       if (nationalities.length > 1) {
         for (let i = 1; i < nationalities.length; i++) {
           expect(nationalities[i] >= nationalities[i - 1]).toBe(true);
@@ -388,7 +319,7 @@ describe('Driver Routes', () => {
     it('should return only strings', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/nationalities',
+        url: '/api/v1/teams/nationalities',
       });
 
       const body = JSON.parse(response.body);
@@ -400,7 +331,7 @@ describe('Driver Routes', () => {
     it('should not include null or empty nationalities', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers/nationalities',
+        url: '/api/v1/teams/nationalities',
       });
 
       const body = JSON.parse(response.body);
@@ -415,7 +346,7 @@ describe('Driver Routes', () => {
     it('should handle multiple query parameters', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?nationality=British&search=ham&page=1&limit=5',
+        url: '/api/v1/teams?nationality=Italian&search=fer&page=1&limit=5',
       });
 
       expect(response.statusCode).toBe(200);
@@ -426,7 +357,7 @@ describe('Driver Routes', () => {
     it('should handle special characters in search', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers?search=Pérez',
+        url: '/api/v1/teams?search=Red%20Bull',
       });
 
       expect(response.statusCode).toBe(200);
@@ -437,7 +368,7 @@ describe('Driver Routes', () => {
     it('should return consistent response structure', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v1/drivers',
+        url: '/api/v1/teams',
       });
 
       const body = JSON.parse(response.body);
@@ -450,19 +381,6 @@ describe('Driver Routes', () => {
       expect(body.meta).toHaveProperty('totalPages');
       expect(body.meta).toHaveProperty('hasNext');
       expect(body.meta).toHaveProperty('hasPrev');
-    });
-
-    it('should format dates correctly', async () => {
-      const response = await fastify.inject({
-        method: 'GET',
-        url: '/api/v1/drivers?limit=1',
-      });
-
-      const body = JSON.parse(response.body);
-      if (body.data.length > 0) {
-        const driver = body.data[0];
-        expect(driver.dob).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      }
     });
   });
 });

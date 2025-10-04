@@ -1,19 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
 import { standingsService } from '../../services/standingsService';
 import type { ApiResponse, StandingsQueryParams } from '../../types/api';
-
-// Validation schemas
-const standingsQuerySchema = z.object({
-  season: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : undefined)),
-  round: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : undefined)),
-});
+import { standingsQuerySchema } from '../../utils/validation';
 
 export async function standingsRoutes(fastify: FastifyInstance) {
   /**

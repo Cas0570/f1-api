@@ -1,29 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
 import { teamService, TeamQueryParams } from '../../services/teamService';
 import type { ApiResponse } from '../../types/api';
-
-// Validation schemas
-const teamQuerySchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 1)),
-  limit: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 20)),
-  nationality: z.string().optional(),
-  search: z.string().optional(),
-});
-
-const teamIdParamSchema = z.object({
-  id: z.string().transform((val) => parseInt(val, 10)),
-});
-
-const teamRefParamSchema = z.object({
-  ref: z.string().min(1),
-});
+import {
+  teamQuerySchema,
+  idParamSchema,
+  refParamSchema,
+} from '../../utils/validation';
 
 export async function teamRoutes(fastify: FastifyInstance) {
   /**
@@ -111,7 +93,7 @@ export async function teamRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate ID parameter
-        const validationResult = teamIdParamSchema.safeParse(request.params);
+        const validationResult = idParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({
@@ -177,7 +159,7 @@ export async function teamRoutes(fastify: FastifyInstance) {
     ) => {
       try {
         // Validate ref parameter
-        const validationResult = teamRefParamSchema.safeParse(request.params);
+        const validationResult = refParamSchema.safeParse(request.params);
 
         if (!validationResult.success) {
           return reply.status(400).send({
