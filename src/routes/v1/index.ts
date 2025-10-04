@@ -9,6 +9,7 @@ import { teamRoutes } from './teams';
 import { circuitRoutes } from './circuits';
 import { seasonRoutes } from './seasons';
 import { raceRoutes } from './races';
+import { standingsRoutes } from './standings';
 
 /**
  * Register all v1 routes
@@ -28,4 +29,7 @@ export async function v1Routes(fastify: FastifyInstance) {
 
   // Register race routes
   fastify.register(raceRoutes, { prefix: '/races' });
+
+  // Register standings routes
+  fastify.register(standingsRoutes, { prefix: '/standings' });
 }

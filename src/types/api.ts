@@ -160,3 +160,34 @@ export interface QualifyingResultResponse {
   q2Time: string | null;
   q3Time: string | null;
 }
+
+// Standings Types
+
+export interface DriverStandingResponse {
+  position: number;
+  points: number;
+  wins: number;
+  driver: {
+    id: number;
+    driverRef: string;
+    code: string | null;
+    forename: string;
+    surname: string;
+  };
+}
+
+export interface ConstructorStandingResponse {
+  position: number;
+  points: number;
+  wins: number;
+  team: {
+    id: number;
+    teamRef: string;
+    name: string;
+  };
+}
+
+export interface StandingsQueryParams {
+  season?: number;
+  round?: number;
+}

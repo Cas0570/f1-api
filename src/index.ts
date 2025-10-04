@@ -92,6 +92,7 @@ async function setupRoutes() {
       version: '1.0.0',
       description: 'Formula 1 Historical Data API (1950-present)',
       generation: 1,
+      status: 'COMPLETE',
       endpoints: {
         drivers: '/api/v1/drivers',
         driverById: '/api/v1/drivers/:id',
@@ -113,7 +114,8 @@ async function setupRoutes() {
         racesBySeason: '/api/v1/races/season/:year',
         raceResults: '/api/v1/races/:id/results',
         qualifyingResults: '/api/v1/races/:id/qualifying',
-        standings: '/api/v1/standings (coming soon)',
+        driverStandings: '/api/v1/standings/drivers',
+        constructorStandings: '/api/v1/standings/constructors',
         health: '/health',
       },
       documentation: 'https://github.com/Cas0570/f1-api',
