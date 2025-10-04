@@ -1,6 +1,8 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 
@@ -41,10 +43,14 @@ async function registerPlugins() {
     credentials: true,
   });
 
-  // Helmet - Security headers
+  // Helmet - Security headers (disable CSP for Swagger UI)
   await fastify.register(helmet, {
-    contentSecurityPolicy: false, // Disable for API-only server
+    contentSecurityPolicy: false,
   });
+
+  // Swagger - API documentation
+  await fastify.register(swagger);
+  await fastify.register(swaggerUi);
 }
 
 // Setup routes
@@ -53,74 +59,136 @@ async function setupRoutes() {
   const { v1Routes } = await import('./routes/v1/index');
 
   // Root endpoint
-  fastify.get('/', async () => {
-    return {
-      name: 'F1 API',
-      version: '1.0.0',
-      status: 'operational',
-      documentation: '/api/v1',
-    };
-  });
-
-  // Health check endpoint
-  fastify.get('/health', async () => {
-    try {
-      // Test database connection
-      await prisma.$queryRaw`SELECT 1`;
-
+  fastify.get(
+    '/',
+    {
+      schema: {
+        tags: ['Health'],
+        description: 'Root endpoint with API information',
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              version: { type: 'string' },
+              status: { type: 'string' },
+              documentation: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async () => {
       return {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        database: 'connected',
-        uptime: process.uptime(),
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      return {
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        database: 'disconnected',
-        uptime: process.uptime(),
+        name: 'F1 API',
+        version: '1.0.0',
+        status: 'operational',
+        documentation: '/docs',
       };
     }
-  });
+  );
+
+  // Health check endpoint
+  fastify.get(
+    '/health',
+    {
+      schema: {
+        tags: ['Health'],
+        description: 'Health check endpoint',
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              status: { type: 'string', example: 'healthy' },
+              timestamp: { type: 'string', format: 'date-time' },
+              database: { type: 'string', example: 'connected' },
+              uptime: { type: 'number', example: 123.45 },
+            },
+          },
+        },
+      },
+    },
+    async () => {
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+
+        return {
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          database: 'connected',
+          uptime: process.uptime(),
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        return {
+          status: 'unhealthy',
+          timestamp: new Date().toISOString(),
+          database: 'disconnected',
+          uptime: process.uptime(),
+        };
+      }
+    }
+  );
 
   // API v1 info endpoint
-  fastify.get('/api/v1', async () => {
-    return {
-      name: 'F1 API - Generation 1',
-      version: '1.0.0',
-      description: 'Formula 1 Historical Data API (1950-present)',
-      generation: 1,
-      status: 'COMPLETE',
-      endpoints: {
-        drivers: '/api/v1/drivers',
-        driverById: '/api/v1/drivers/:id',
-        driverByRef: '/api/v1/drivers/ref/:ref',
-        driverNationalities: '/api/v1/drivers/nationalities',
-        teams: '/api/v1/teams',
-        teamById: '/api/v1/teams/:id',
-        teamByRef: '/api/v1/teams/ref/:ref',
-        teamNationalities: '/api/v1/teams/nationalities',
-        circuits: '/api/v1/circuits',
-        circuitById: '/api/v1/circuits/:id',
-        circuitByRef: '/api/v1/circuits/ref/:ref',
-        circuitCountries: '/api/v1/circuits/countries',
-        seasons: '/api/v1/seasons',
-        seasonById: '/api/v1/seasons/:id',
-        seasonByYear: '/api/v1/seasons/year/:year',
-        races: '/api/v1/races',
-        raceById: '/api/v1/races/:id',
-        racesBySeason: '/api/v1/races/season/:year',
-        raceResults: '/api/v1/races/:id/results',
-        qualifyingResults: '/api/v1/races/:id/qualifying',
-        driverStandings: '/api/v1/standings/drivers',
-        constructorStandings: '/api/v1/standings/constructors',
-        health: '/health',
+  fastify.get(
+    '/api/v1',
+    {
+      schema: {
+        tags: ['Health'],
+        description: 'API v1 information and available endpoints',
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              version: { type: 'string' },
+              description: { type: 'string' },
+              generation: { type: 'integer' },
+              status: { type: 'string' },
+              endpoints: { type: 'object' },
+              documentation: { type: 'string' },
+            },
+          },
+        },
       },
-      documentation: 'https://github.com/Cas0570/f1-api',
-    };
-  });
+    },
+    async () => {
+      return {
+        name: 'F1 API - Generation 1',
+        version: '1.0.0',
+        description: 'Formula 1 Historical Data API (1950-present)',
+        generation: 1,
+        status: 'COMPLETE',
+        endpoints: {
+          drivers: '/api/v1/drivers',
+          driverById: '/api/v1/drivers/:id',
+          driverByRef: '/api/v1/drivers/ref/:ref',
+          driverNationalities: '/api/v1/drivers/nationalities',
+          teams: '/api/v1/teams',
+          teamById: '/api/v1/teams/:id',
+          teamByRef: '/api/v1/teams/ref/:ref',
+          teamNationalities: '/api/v1/teams/nationalities',
+          circuits: '/api/v1/circuits',
+          circuitById: '/api/v1/circuits/:id',
+          circuitByRef: '/api/v1/circuits/ref/:ref',
+          circuitCountries: '/api/v1/circuits/countries',
+          seasons: '/api/v1/seasons',
+          seasonById: '/api/v1/seasons/:id',
+          seasonByYear: '/api/v1/seasons/year/:year',
+          races: '/api/v1/races',
+          raceById: '/api/v1/races/:id',
+          racesBySeason: '/api/v1/races/season/:year',
+          raceResults: '/api/v1/races/:id/results',
+          qualifyingResults: '/api/v1/races/:id/qualifying',
+          driverStandings: '/api/v1/standings/drivers',
+          constructorStandings: '/api/v1/standings/constructors',
+          health: '/health',
+        },
+        documentation: 'https://github.com/Cas0570/f1-api',
+      };
+    }
+  );
 
   // Register v1 routes
   fastify.register(v1Routes, { prefix: '/api/v1' });
@@ -171,6 +239,7 @@ async function start() {
 📍 Server URL: http://${host}:${port}
 🔍 Health Check: http://${host}:${port}/health
 📚 API Info: http://${host}:${port}/api/v1
+📖 API Documentation: http://${host}:${port}/docs
 🌍 Environment: ${process.env.NODE_ENV || 'development'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     `);
