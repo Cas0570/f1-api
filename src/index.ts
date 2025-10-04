@@ -101,12 +101,15 @@ async function setupRoutes() {
         teamById: '/api/v1/teams/:id',
         teamByRef: '/api/v1/teams/ref/:ref',
         teamNationalities: '/api/v1/teams/nationalities',
-        circuits: '/api/v1/circuits (coming soon)',
+        circuits: '/api/v1/circuits',
+        circuitById: '/api/v1/circuits/:id',
+        circuitByRef: '/api/v1/circuits/ref/:ref',
+        circuitCountries: '/api/v1/circuits/countries',
         seasons: '/api/v1/seasons (coming soon)',
         races: '/api/v1/races (coming soon)',
         health: '/health',
       },
-      documentation: 'https://github.com/your-repo/f1-api',
+      documentation: 'https://github.com/Cas0570/f1-api',
     };
   });
 
