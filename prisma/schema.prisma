@@ -15,12 +15,12 @@ model Driver {
   id          Int      @id @default(autoincrement())
   driverRef   String   @unique @map("driver_ref")
   number      Int?     @map("number")
-  code        String?  @unique @db.VarChar(3)
+  code        String?  @db.VarChar(3)
   forename    String   @db.VarChar(255)
   surname     String   @db.VarChar(255)
   dob         DateTime @map("dob") @db.Date
   nationality String   @db.VarChar(255)
-  url         String   @unique
+  url         String
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -39,7 +39,7 @@ model Team {
   teamRef     String   @unique @map("team_ref")
   name        String   @db.VarChar(255)
   nationality String   @db.VarChar(255)
-  url         String   @unique
+  url         String
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -61,7 +61,7 @@ model Circuit {
   lat        Float?
   lng        Float?
   alt        Int?
-  url        String   @unique
+  url        String
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -75,7 +75,7 @@ model Circuit {
 model Season {
   id        Int      @id @default(autoincrement())
   year      Int      @unique
-  url       String   @unique
+  url       String
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -94,7 +94,7 @@ model Race {
   name      String    @db.VarChar(255)
   date      DateTime  @db.Date
   time      DateTime? @db.Time
-  url       String    @unique
+  url       String
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
