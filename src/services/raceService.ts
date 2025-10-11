@@ -8,8 +8,17 @@ import type {
   PaginationMeta,
   CircuitResponse,
 } from '../types/api';
+import { cacheService, CacheKeys } from './cacheService';
 
 const prisma = new PrismaClient();
+
+// Cache TTLs (in seconds)
+const CACHE_TTL = {
+  RACE_DETAIL: 3600, // 1 hour
+  RACE_RESULTS: 3600, // 1 hour
+  QUALIFYING_RESULTS: 3600, // 1 hour
+  RACES_BY_SEASON: 1800, // 30 minutes
+};
 
 export class RaceService {
   /**
@@ -109,6 +118,10 @@ export class RaceService {
    * Get a single race by ID
    */
   async getRaceById(id: number): Promise<RaceDetailResponse | null> {
+    const cacheKey = CacheKeys.race(id);
+    const cached = cacheService.get<RaceDetailResponse>(cacheKey);
+    if (cached) return cached;
+
     const race = await prisma.race.findUnique({
       where: { id },
       include: {
@@ -143,6 +156,7 @@ export class RaceService {
       },
     };
 
+    cacheService.set(cacheKey, response, CACHE_TTL.RACE_DETAIL);
     return response;
   }
 
@@ -230,6 +244,10 @@ export class RaceService {
    * Get race results for a specific race
    */
   async getRaceResults(raceId: number): Promise<RaceResultResponse[] | null> {
+    const cacheKey = CacheKeys.raceResults(raceId);
+    const cached = cacheService.get<RaceResultResponse[]>(cacheKey);
+    if (cached) return cached;
+
     // First check if race exists
     const race = await prisma.race.findUnique({
       where: { id: raceId },
@@ -249,6 +267,7 @@ export class RaceService {
       orderBy: { position: 'asc' },
     });
 
+    cacheService.set(cacheKey, results, CACHE_TTL.RACE_RESULTS);
     return results.map((result) => ({
       position: result.position,
       positionText: result.positionText,
@@ -278,6 +297,10 @@ export class RaceService {
   async getQualifyingResults(
     raceId: number
   ): Promise<QualifyingResultResponse[] | null> {
+    const cacheKey = CacheKeys.raceQualifying(raceId);
+    const cached = cacheService.get<QualifyingResultResponse[]>(cacheKey);
+    if (cached) return cached;
+
     // First check if race exists
     const race = await prisma.race.findUnique({
       where: { id: raceId },
@@ -296,6 +319,7 @@ export class RaceService {
       orderBy: { position: 'asc' },
     });
 
+    cacheService.set(cacheKey, results, CACHE_TTL.QUALIFYING_RESULTS);
     return results.map((result) => ({
       position: result.position,
       driver: {

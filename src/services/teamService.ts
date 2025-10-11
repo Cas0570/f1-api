@@ -4,6 +4,7 @@ import type {
   PaginationMeta,
   PaginationParams,
 } from '../types/api';
+import { cacheService, CacheKeys } from './cacheService';
 
 const prisma = new PrismaClient();
 
@@ -21,6 +22,12 @@ export interface TeamDetailResponse extends TeamResponse {
     championships: number;
   };
 }
+
+// Cache TTLs (in seconds)
+const CACHE_TTL = {
+  TEAM_DETAIL: 3600, // 1 hour
+  NATIONALITIES: 86400, // 24 hours
+};
 
 export class TeamService {
   /**
@@ -94,6 +101,13 @@ export class TeamService {
    * Get a single team by ID
    */
   async getTeamById(id: number): Promise<TeamDetailResponse | null> {
+    // Check cache
+    const cacheKey = CacheKeys.team(id);
+    const cached = cacheService.get<TeamDetailResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const team = await prisma.team.findUnique({
       where: { id },
       include: {
@@ -122,9 +136,7 @@ export class TeamService {
       (r) => r.position && r.position <= 3
     ).length;
     const poles = team.qualifyingResults.filter((q) => q.position === 1).length;
-
-    // For championships, we'd need to query constructor_standings
-    const championships = 0; // TODO: Calculate from constructor_standings
+    const championships = 0;
 
     const response: TeamDetailResponse = {
       ...this.transformTeamToResponse(team),
@@ -137,6 +149,9 @@ export class TeamService {
       },
     };
 
+    // Cache it
+    cacheService.set(cacheKey, response, CACHE_TTL.TEAM_DETAIL);
+
     return response;
   }
 
@@ -144,6 +159,13 @@ export class TeamService {
    * Get team by reference (e.g., "mercedes")
    */
   async getTeamByRef(teamRef: string): Promise<TeamDetailResponse | null> {
+    // Check cache
+    const cacheKey = CacheKeys.teamByRef(teamRef);
+    const cached = cacheService.get<TeamDetailResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const team = await prisma.team.findUnique({
       where: { teamRef },
       include: {
@@ -185,6 +207,9 @@ export class TeamService {
       },
     };
 
+    // Cache it
+    cacheService.set(cacheKey, response, CACHE_TTL.TEAM_DETAIL);
+
     return response;
   }
 
@@ -205,13 +230,25 @@ export class TeamService {
    * Get list of all nationalities (for filtering)
    */
   async getNationalities(): Promise<string[]> {
+    // Check cache
+    const cacheKey = CacheKeys.teamNationalities();
+    const cached = cacheService.get<string[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const teams = await prisma.team.findMany({
       select: { nationality: true },
       distinct: ['nationality'],
       orderBy: { nationality: 'asc' },
     });
 
-    return teams.map((t) => t.nationality);
+    const nationalities = teams.map((t) => t.nationality);
+
+    // Cache it
+    cacheService.set(cacheKey, nationalities, CACHE_TTL.NATIONALITIES);
+
+    return nationalities;
   }
 }
 

@@ -5,8 +5,16 @@ import type {
   DriverQueryParams,
   PaginationMeta,
 } from '../types/api';
+import { cacheService, CacheKeys } from './cacheService';
 
 const prisma = new PrismaClient();
+
+// Cache TTLs (in seconds)
+const CACHE_TTL = {
+  DRIVER_DETAIL: 3600, // 1 hour (driver data rarely changes)
+  DRIVER_LIST: 600, // 10 minutes
+  NATIONALITIES: 86400, // 24 hours (very stable)
+};
 
 export class DriverService {
   /**
@@ -15,6 +23,7 @@ export class DriverService {
   async getAllDrivers(
     params: DriverQueryParams
   ): Promise<{ drivers: DriverResponse[]; meta: PaginationMeta }> {
+    // Don't cache paginated lists (too many variations)
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(100, Math.max(1, params.limit || 20));
     const skip = (page - 1) * limit;
@@ -83,9 +92,17 @@ export class DriverService {
   }
 
   /**
-   * Get a single driver by ID
+   * Get a single driver by ID (WITH CACHING)
    */
   async getDriverById(id: number): Promise<DriverDetailResponse | null> {
+    // Check cache first
+    const cacheKey = CacheKeys.driver(id);
+    const cached = cacheService.get<DriverDetailResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Query database
     const driver = await prisma.driver.findUnique({
       where: { id },
       include: {
@@ -116,10 +133,7 @@ export class DriverService {
     const poles = driver.qualifyingResults.filter(
       (q) => q.position === 1
     ).length;
-
-    // For championships, we'd need to query driver_standings
-    // This is a simplified version
-    const championships = 0; // TODO: Calculate from driver_standings
+    const championships = 0;
 
     const response: DriverDetailResponse = {
       ...this.transformDriverToResponse(driver),
@@ -132,15 +146,26 @@ export class DriverService {
       },
     };
 
+    // Store in cache
+    cacheService.set(cacheKey, response, CACHE_TTL.DRIVER_DETAIL);
+
     return response;
   }
 
   /**
-   * Get driver by reference (e.g., "hamilton")
+   * Get driver by reference (WITH CACHING)
    */
   async getDriverByRef(
     driverRef: string
   ): Promise<DriverDetailResponse | null> {
+    // Check cache first
+    const cacheKey = CacheKeys.driverByRef(driverRef);
+    const cached = cacheService.get<DriverDetailResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Query database
     const driver = await prisma.driver.findUnique({
       where: { driverRef },
       include: {
@@ -184,6 +209,9 @@ export class DriverService {
       },
     };
 
+    // Store in cache
+    cacheService.set(cacheKey, response, CACHE_TTL.DRIVER_DETAIL);
+
     return response;
   }
 
@@ -199,23 +227,36 @@ export class DriverService {
       forename: driver.forename,
       surname: driver.surname,
       fullName: `${driver.forename} ${driver.surname}`,
-      dob: driver.dob.toISOString().split('T')[0], // YYYY-MM-DD format
+      dob: driver.dob.toISOString().split('T')[0],
       nationality: driver.nationality,
       url: driver.url,
     };
   }
 
   /**
-   * Get list of all nationalities (for filtering)
+   * Get list of all nationalities (WITH CACHING)
    */
   async getNationalities(): Promise<string[]> {
+    // Check cache first
+    const cacheKey = CacheKeys.driverNationalities();
+    const cached = cacheService.get<string[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Query database
     const drivers = await prisma.driver.findMany({
       select: { nationality: true },
       distinct: ['nationality'],
       orderBy: { nationality: 'asc' },
     });
 
-    return drivers.map((d) => d.nationality);
+    const nationalities = drivers.map((d) => d.nationality);
+
+    // Store in cache (24 hours - this data is very stable)
+    cacheService.set(cacheKey, nationalities, CACHE_TTL.NATIONALITIES);
+
+    return nationalities;
   }
 }
 

@@ -71,6 +71,7 @@ async function fetchAll<T>(endpoint: string): Promise<T[]> {
   let offset = 0;
   const limit = 100;
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const url = `${BASE_URL}/${endpoint}.json?limit=${limit}&offset=${offset}`;
     const response = await fetchWithRetry(url);
@@ -318,7 +319,7 @@ async function importRacesForSeason(season: any) {
       if (!circuit) continue;
 
       const raceDate = new Date(race.date);
-      let raceTime = null;
+      let raceTime: Date | null = null;
       if (race.time) {
         const [hours, minutes, seconds] = race.time.replace('Z', '').split(':');
         raceTime = new Date(`1970-01-01T${hours}:${minutes}:${seconds}Z`);

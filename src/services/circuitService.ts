@@ -4,6 +4,7 @@ import type {
   PaginationMeta,
   PaginationParams,
 } from '../types/api';
+import { cacheService, CacheKeys } from './cacheService';
 
 const prisma = new PrismaClient();
 
@@ -25,6 +26,12 @@ export interface CircuitDetailResponse extends CircuitResponse {
     };
   };
 }
+
+// Cache TTLs
+const CACHE_TTL = {
+  CIRCUIT_DETAIL: 3600, // 1 hour
+  COUNTRIES: 86400, // 24 hours
+};
 
 export class CircuitService {
   /**
@@ -104,6 +111,13 @@ export class CircuitService {
    * Get a single circuit by ID
    */
   async getCircuitById(id: number): Promise<CircuitDetailResponse | null> {
+    // Check cache
+    const cacheKey = CacheKeys.circuit(id);
+    const cached = cacheService.get<CircuitDetailResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const circuit = await prisma.circuit.findUnique({
       where: { id },
       include: {
@@ -146,6 +160,9 @@ export class CircuitService {
       },
     };
 
+    // Cache it
+    cacheService.set(cacheKey, response, CACHE_TTL.CIRCUIT_DETAIL);
+
     return response;
   }
 
@@ -155,6 +172,13 @@ export class CircuitService {
   async getCircuitByRef(
     circuitRef: string
   ): Promise<CircuitDetailResponse | null> {
+    // Check cache
+    const cacheKey = CacheKeys.circuitByRef(circuitRef);
+    const cached = cacheService.get<CircuitDetailResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const circuit = await prisma.circuit.findUnique({
       where: { circuitRef },
       include: {
@@ -197,6 +221,9 @@ export class CircuitService {
       },
     };
 
+    // Cache it
+    cacheService.set(cacheKey, response, CACHE_TTL.CIRCUIT_DETAIL);
+
     return response;
   }
 
@@ -221,13 +248,25 @@ export class CircuitService {
    * Get list of all countries (for filtering)
    */
   async getCountries(): Promise<string[]> {
+    // Check cache
+    const cacheKey = CacheKeys.circuitCountries();
+    const cached = cacheService.get<string[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const circuits = await prisma.circuit.findMany({
       select: { country: true },
       distinct: ['country'],
       orderBy: { country: 'asc' },
     });
 
-    return circuits.map((c) => c.country);
+    const countries = circuits.map((c) => c.country);
+
+    // Cache it
+    cacheService.set(cacheKey, countries, CACHE_TTL.COUNTRIES);
+
+    return countries;
   }
 }
 

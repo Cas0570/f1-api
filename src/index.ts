@@ -5,6 +5,13 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+import {
+  requestLogger,
+  responseLogger,
+  addResponseTimeHeader,
+} from './middleware/requestLogger';
+import { addCacheHeaders } from './middleware/cacheHeaders';
+import { performanceMonitor } from './utils/performance';
 
 // Load environment variables
 dotenv.config();
@@ -43,12 +50,26 @@ async function registerPlugins() {
     credentials: true,
   });
 
-  // Helmet - Security headers (disable CSP for Swagger UI)
+  // Helmet
   await fastify.register(helmet, {
     contentSecurityPolicy: false,
   });
 
-  // Swagger - API documentation
+  // Request logging (on request start)
+  fastify.addHook('onRequest', requestLogger);
+
+  // Response time header and cache headers (before response sent)
+  fastify.addHook('onSend', addResponseTimeHeader);
+  fastify.addHook('onSend', addCacheHeaders);
+
+  // Response logging and performance tracking (after response sent)
+  fastify.addHook('onResponse', responseLogger);
+  fastify.addHook('onResponse', (request, reply, done) => {
+    performanceMonitor.record(request.url, reply.elapsedTime);
+    done();
+  });
+
+  // Swagger
   await fastify.register(swagger);
   await fastify.register(swaggerUi);
 }
@@ -127,6 +148,101 @@ async function setupRoutes() {
           uptime: process.uptime(),
         };
       }
+    }
+  );
+
+  // Cache statistics endpoint
+  fastify.get(
+    '/health/cache',
+    {
+      schema: {
+        tags: ['Health'],
+        description: 'Cache performance statistics',
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              status: { type: 'string' },
+              stats: {
+                type: 'object',
+                properties: {
+                  keys: { type: 'number' },
+                  hits: { type: 'number' },
+                  misses: { type: 'number' },
+                  hitRate: { type: 'string' },
+                  ksize: { type: 'number' },
+                  vsize: { type: 'number' },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async () => {
+      const { cacheService } = await import('./services/cacheService');
+      const stats = cacheService.getStats();
+      const totalRequests = stats.hits + stats.misses;
+      const hitRate =
+        totalRequests > 0
+          ? ((stats.hits / totalRequests) * 100).toFixed(2) + '%'
+          : '0%';
+
+      return {
+        status: 'ok',
+        stats: {
+          keys: stats.keys,
+          hits: stats.hits,
+          misses: stats.misses,
+          hitRate,
+          ksize: stats.ksize,
+          vsize: stats.vsize,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+  );
+
+  // Performance metrics endpoint
+  fastify.get(
+    '/health/performance',
+    {
+      schema: {
+        tags: ['Health'],
+        description: 'API performance metrics',
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              status: { type: 'string' },
+              metrics: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    endpoint: { type: 'string' },
+                    avgResponseTime: { type: 'number' },
+                    minResponseTime: { type: 'number' },
+                    maxResponseTime: { type: 'number' },
+                    totalRequests: { type: 'number' },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async () => {
+      const metrics = performanceMonitor.getAllMetrics();
+
+      return {
+        status: 'ok',
+        metrics: metrics.slice(0, 20), // Top 20 endpoints
+        timestamp: new Date().toISOString(),
+      };
     }
   );
 
