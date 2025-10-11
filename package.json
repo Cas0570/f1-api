@@ -20,6 +20,10 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "postinstall": "prisma generate"
   },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "keywords": [
     "f1",
     "formula1",
