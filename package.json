@@ -13,10 +13,14 @@
     "db:clear": "tsx prisma/clear.ts",
     "db:import": "tsx scripts/import-ergast-data.ts",
     "db:optimize": "tsx scripts/optimize-database.ts",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "lint": "eslint src --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "postinstall": "prisma generate"
   },
   "keywords": [
     "f1",
