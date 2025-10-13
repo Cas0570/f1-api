@@ -1,378 +1,624 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  cleanDatabase,
+  mockCircuit,
+  mockRace,
+  mockSeason,
+  testPrisma,
+} from '../../helpers/testSetup';
 import { circuitService } from '../../../src/services/circuitService';
-import { PrismaClient } from '@prisma/client';
-
-// Mock Prisma Client
-vi.mock('@prisma/client', () => {
-  const mockPrismaClient = {
-    circuit: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      count: vi.fn(),
-    },
-  };
-  return {
-    PrismaClient: vi.fn(() => mockPrismaClient),
-  };
-});
+import { cacheService } from '../../../src/services/cacheService';
 
 describe('CircuitService', () => {
-  let prisma: any;
+  beforeEach(async () => {
+    await cleanDatabase();
+    cacheService.flush();
+  });
 
-  beforeEach(() => {
-    prisma = new PrismaClient();
-    vi.clearAllMocks();
+  afterEach(() => {
+    cacheService.flush();
   });
 
   describe('getAllCircuits', () => {
-    it('should return paginated circuits', async () => {
-      const mockCircuits = [
-        {
-          id: 1,
-          circuitRef: 'monza',
-          name: 'Autodromo Nazionale di Monza',
-          location: 'Monza',
-          country: 'Italy',
-          lat: 45.6156,
-          lng: 9.28111,
-          alt: 162,
-          url: 'http://example.com',
-        },
-      ];
+    it('should return empty array when no circuits exist', async () => {
+      const result = await circuitService.getAllCircuits({});
 
-      prisma.circuit.findMany.mockResolvedValue(mockCircuits);
-      prisma.circuit.count.mockResolvedValue(1);
+      expect(result.circuits).toEqual([]);
+      expect(result.meta.total).toBe(0);
+      expect(result.meta.totalPages).toBe(0);
+    });
 
-      const result = await circuitService.getAllCircuits({
+    it('should return all circuits with default pagination', async () => {
+      await mockCircuit.createBatch(5);
+
+      const result = await circuitService.getAllCircuits({});
+
+      expect(result.circuits).toHaveLength(5);
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.limit).toBe(20);
+      expect(result.meta.total).toBe(5);
+      expect(result.meta.totalPages).toBe(1);
+      expect(result.meta.hasNext).toBe(false);
+      expect(result.meta.hasPrev).toBe(false);
+    });
+
+    it('should paginate circuits correctly', async () => {
+      await mockCircuit.createBatch(25);
+
+      // Page 1
+      const page1 = await circuitService.getAllCircuits({
         page: 1,
-        limit: 20,
+        limit: 10,
       });
+      expect(page1.circuits).toHaveLength(10);
+      expect(page1.meta.page).toBe(1);
+      expect(page1.meta.total).toBe(25);
+      expect(page1.meta.totalPages).toBe(3);
+      expect(page1.meta.hasNext).toBe(true);
+      expect(page1.meta.hasPrev).toBe(false);
 
-      expect(result.circuits).toHaveLength(1);
-      expect(result.circuits[0].name).toBe('Autodromo Nazionale di Monza');
-      expect(result.meta).toEqual({
-        page: 1,
-        limit: 20,
-        total: 1,
-        totalPages: 1,
-        hasNext: false,
-        hasPrev: false,
+      // Page 2
+      const page2 = await circuitService.getAllCircuits({
+        page: 2,
+        limit: 10,
       });
+      expect(page2.circuits).toHaveLength(10);
+      expect(page2.meta.page).toBe(2);
+      expect(page2.meta.hasNext).toBe(true);
+      expect(page2.meta.hasPrev).toBe(true);
+
+      // Page 3 (last page)
+      const page3 = await circuitService.getAllCircuits({
+        page: 3,
+        limit: 10,
+      });
+      expect(page3.circuits).toHaveLength(5);
+      expect(page3.meta.hasNext).toBe(false);
+      expect(page3.meta.hasPrev).toBe(true);
+
+      // Ensure different circuits on each page
+      const page1Ids = page1.circuits.map((c) => c.id);
+      const page2Ids = page2.circuits.map((c) => c.id);
+      expect(page1Ids).not.toEqual(page2Ids);
     });
 
     it('should filter by country', async () => {
-      prisma.circuit.findMany.mockResolvedValue([]);
-      prisma.circuit.count.mockResolvedValue(0);
-
-      await circuitService.getAllCircuits({
-        page: 1,
-        limit: 20,
+      await mockCircuit.create({
         country: 'Italy',
+        circuitRef: 'monza',
+        name: 'Monza',
+      });
+      await mockCircuit.create({
+        country: 'Italy',
+        circuitRef: 'imola',
+        name: 'Imola',
+      });
+      await mockCircuit.create({
+        country: 'UK',
+        circuitRef: 'silverstone',
+        name: 'Silverstone',
       });
 
-      expect(prisma.circuit.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            country: { equals: 'Italy', mode: 'insensitive' },
-          }),
-        })
-      );
+      const result = await circuitService.getAllCircuits({ country: 'Italy' });
+
+      expect(result.circuits).toHaveLength(2);
+      expect(result.meta.total).toBe(2);
+      result.circuits.forEach((circuit) => {
+        expect(circuit.country).toBe('Italy');
+      });
     });
 
-    it('should search by name, location, or circuitRef', async () => {
-      prisma.circuit.findMany.mockResolvedValue([]);
-      prisma.circuit.count.mockResolvedValue(0);
+    it('should filter by country case-insensitively', async () => {
+      await mockCircuit.create({ country: 'Italy', circuitRef: 'monza' });
 
-      await circuitService.getAllCircuits({
-        page: 1,
-        limit: 20,
-        search: 'monza',
+      const result = await circuitService.getAllCircuits({ country: 'italy' });
+
+      expect(result.circuits).toHaveLength(1);
+      expect(result.circuits[0].country).toBe('Italy');
+    });
+
+    it('should search by circuit name', async () => {
+      await mockCircuit.create({
+        name: 'Circuit de Monaco',
+        circuitRef: 'monaco',
+      });
+      await mockCircuit.create({
+        name: 'Silverstone Circuit',
+        circuitRef: 'silverstone',
       });
 
-      expect(prisma.circuit.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: expect.arrayContaining([
-              expect.objectContaining({
-                name: { contains: 'monza', mode: 'insensitive' },
-              }),
-              expect.objectContaining({
-                location: { contains: 'monza', mode: 'insensitive' },
-              }),
-              expect.objectContaining({
-                circuitRef: { contains: 'monza', mode: 'insensitive' },
-              }),
-            ]),
-          }),
-        })
-      );
+      const result = await circuitService.getAllCircuits({ search: 'Monaco' });
+
+      expect(result.circuits).toHaveLength(1);
+      expect(result.circuits[0].name).toContain('Monaco');
     });
 
-    it('should sort circuits by name ascending', async () => {
-      prisma.circuit.findMany.mockResolvedValue([]);
-      prisma.circuit.count.mockResolvedValue(0);
-
-      await circuitService.getAllCircuits({ page: 1, limit: 20 });
-
-      expect(prisma.circuit.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          orderBy: { name: 'asc' },
-        })
-      );
-    });
-
-    it('should handle pagination correctly', async () => {
-      prisma.circuit.findMany.mockResolvedValue([]);
-      prisma.circuit.count.mockResolvedValue(75);
+    it('should search by location', async () => {
+      await mockCircuit.create({
+        name: 'Monaco',
+        location: 'Monte Carlo',
+        circuitRef: 'monaco',
+      });
+      await mockCircuit.create({
+        name: 'Silverstone',
+        location: 'Silverstone',
+        circuitRef: 'silverstone',
+      });
 
       const result = await circuitService.getAllCircuits({
-        page: 2,
-        limit: 25,
+        search: 'Monte Carlo',
       });
 
-      expect(prisma.circuit.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          skip: 25,
-          take: 25,
-        })
-      );
-
-      expect(result.meta).toEqual({
-        page: 2,
-        limit: 25,
-        total: 75,
-        totalPages: 3,
-        hasNext: true,
-        hasPrev: true,
-      });
+      expect(result.circuits).toHaveLength(1);
+      expect(result.circuits[0].location).toBe('Monte Carlo');
     });
 
-    it('should include coordinates in response', async () => {
-      const mockCircuit = {
-        id: 1,
-        circuitRef: 'spa',
-        name: 'Circuit de Spa-Francorchamps',
-        location: 'Spa',
-        country: 'Belgium',
-        lat: 50.4372,
-        lng: 5.97139,
-        alt: 401,
-        url: 'http://example.com',
-      };
-
-      prisma.circuit.findMany.mockResolvedValue([mockCircuit]);
-      prisma.circuit.count.mockResolvedValue(1);
-
-      const result = await circuitService.getAllCircuits({
-        page: 1,
-        limit: 20,
+    it('should search by circuitRef', async () => {
+      await mockCircuit.create({ circuitRef: 'monaco', name: 'Monaco' });
+      await mockCircuit.create({
+        circuitRef: 'silverstone',
+        name: 'Silverstone',
       });
 
-      expect(result.circuits[0].lat).toBe(50.4372);
-      expect(result.circuits[0].lng).toBe(5.97139);
-      expect(result.circuits[0].alt).toBe(401);
+      const result = await circuitService.getAllCircuits({ search: 'monaco' });
+
+      expect(result.circuits).toHaveLength(1);
+      expect(result.circuits[0].circuitRef).toBe('monaco');
+    });
+
+    it('should search case-insensitively', async () => {
+      await mockCircuit.create({ name: 'Monaco', circuitRef: 'monaco' });
+
+      const result = await circuitService.getAllCircuits({ search: 'MONACO' });
+
+      expect(result.circuits).toHaveLength(1);
+      expect(result.circuits[0].name).toBe('Monaco');
+    });
+
+    it('should combine country filter and search', async () => {
+      await mockCircuit.create({
+        country: 'Italy',
+        name: 'Autodromo Nazionale di Monza',
+        circuitRef: 'monza',
+      });
+      await mockCircuit.create({
+        country: 'Italy',
+        name: 'Autodromo Enzo e Dino Ferrari',
+        circuitRef: 'imola',
+      });
+      await mockCircuit.create({
+        country: 'UK',
+        name: 'Silverstone Circuit',
+        circuitRef: 'silverstone',
+      });
+
+      const result = await circuitService.getAllCircuits({
+        country: 'Italy',
+        search: 'Monza',
+      });
+
+      expect(result.circuits).toHaveLength(1);
+      expect(result.circuits[0].name).toContain('Monza');
+      expect(result.circuits[0].country).toBe('Italy');
+    });
+
+    it('should sort circuits alphabetically by name', async () => {
+      await mockCircuit.create({ name: 'Silverstone', circuitRef: 'silver' });
+      await mockCircuit.create({ name: 'Monaco', circuitRef: 'monaco' });
+      await mockCircuit.create({ name: 'Spa', circuitRef: 'spa' });
+
+      const result = await circuitService.getAllCircuits({});
+
+      expect(result.circuits[0].name).toBe('Monaco');
+      expect(result.circuits[1].name).toBe('Silverstone');
+      expect(result.circuits[2].name).toBe('Spa');
+    });
+
+    it('should handle page numbers less than 1', async () => {
+      await mockCircuit.createBatch(5);
+
+      const result = await circuitService.getAllCircuits({ page: 0 });
+
+      expect(result.meta.page).toBe(1);
+    });
+
+    it('should handle negative page numbers', async () => {
+      await mockCircuit.createBatch(5);
+
+      const result = await circuitService.getAllCircuits({ page: -5 });
+
+      expect(result.meta.page).toBe(1);
+    });
+
+    it('should cap limit at 100', async () => {
+      await mockCircuit.createBatch(5);
+
+      const result = await circuitService.getAllCircuits({ limit: 200 });
+
+      expect(result.meta.limit).toBe(100);
+    });
+
+    it('should use default limit when 0 is provided', async () => {
+      await mockCircuit.createBatch(5);
+
+      const result = await circuitService.getAllCircuits({ limit: 0 });
+
+      expect(result.meta.limit).toBe(20);
     });
   });
 
   describe('getCircuitById', () => {
-    it('should return circuit with stats', async () => {
-      const mockCircuit = {
-        id: 1,
-        circuitRef: 'silverstone',
-        name: 'Silverstone Circuit',
-        location: 'Silverstone',
-        country: 'UK',
-        lat: 52.0786,
-        lng: -1.01694,
-        alt: 153,
-        url: 'http://example.com',
-        races: [
-          {
-            name: 'British Grand Prix',
-            season: { year: 2020 },
-          },
-          {
-            name: 'British Grand Prix',
-            season: { year: 2021 },
-          },
-          {
-            name: 'British Grand Prix',
-            season: { year: 2024 },
-          },
-        ],
-      };
-
-      prisma.circuit.findUnique.mockResolvedValue(mockCircuit);
-
-      const result = await circuitService.getCircuitById(1);
-
-      expect(result).not.toBeNull();
-      expect(result?.id).toBe(1);
-      expect(result?.stats).toEqual({
-        totalRaces: 3,
-        firstRace: {
-          year: 2020,
-          name: 'British Grand Prix',
-        },
-        lastRace: {
-          year: 2024,
-          name: 'British Grand Prix',
-        },
+    it('should return circuit with basic info', async () => {
+      const created = await mockCircuit.create({
+        name: 'Circuit de Monaco',
+        circuitRef: 'monaco',
+        location: 'Monte Carlo',
+        country: 'Monaco',
+        lat: 43.7347,
+        lng: 7.42056,
+        alt: 7,
       });
+
+      const circuit = await circuitService.getCircuitById(created.id);
+
+      expect(circuit).toBeDefined();
+      expect(circuit?.id).toBe(created.id);
+      expect(circuit?.name).toBe('Circuit de Monaco');
+      expect(circuit?.circuitRef).toBe('monaco');
+      expect(circuit?.location).toBe('Monte Carlo');
+      expect(circuit?.country).toBe('Monaco');
+      expect(circuit?.lat).toBe(43.7347);
+      expect(circuit?.lng).toBe(7.42056);
+      expect(circuit?.alt).toBe(7);
     });
 
     it('should return null for non-existent circuit', async () => {
-      prisma.circuit.findUnique.mockResolvedValue(null);
+      const circuit = await circuitService.getCircuitById(99999);
 
-      const result = await circuitService.getCircuitById(999);
-
-      expect(result).toBeNull();
+      expect(circuit).toBeNull();
     });
 
-    it('should handle circuit with no races', async () => {
-      const mockCircuit = {
-        id: 1,
-        circuitRef: 'newcircuit',
-        name: 'New Circuit',
-        location: 'Location',
-        country: 'Country',
-        lat: 0,
-        lng: 0,
-        alt: 0,
-        url: 'http://example.com',
-        races: [],
-      };
+    it('should calculate statistics correctly - no races', async () => {
+      const created = await mockCircuit.create();
 
-      prisma.circuit.findUnique.mockResolvedValue(mockCircuit);
+      const circuit = await circuitService.getCircuitById(created.id);
 
-      const result = await circuitService.getCircuitById(1);
-
-      expect(result?.stats).toEqual({
+      expect(circuit?.stats).toEqual({
         totalRaces: 0,
         firstRace: undefined,
         lastRace: undefined,
       });
     });
 
+    it('should calculate statistics correctly - with races', async () => {
+      const circuit = await mockCircuit.create();
+      const season2022 = await mockSeason.create({ year: 2022 });
+      const season2023 = await mockSeason.create({ year: 2023 });
+      const season2024 = await mockSeason.create({ year: 2024 });
+
+      await mockRace.create(season2022.id, circuit.id, {
+        name: 'Monaco Grand Prix',
+        round: 1,
+      });
+      await mockRace.create(season2023.id, circuit.id, {
+        name: 'Monaco Grand Prix',
+        round: 1,
+      });
+      await mockRace.create(season2024.id, circuit.id, {
+        name: 'Monaco Grand Prix',
+        round: 1,
+      });
+
+      const result = await circuitService.getCircuitById(circuit.id);
+
+      expect(result?.stats).toEqual({
+        totalRaces: 3,
+        firstRace: {
+          year: 2022,
+          name: 'Monaco Grand Prix',
+        },
+        lastRace: {
+          year: 2024,
+          name: 'Monaco Grand Prix',
+        },
+      });
+    });
+
     it('should handle circuit with single race', async () => {
-      const mockCircuit = {
-        id: 1,
-        circuitRef: 'jeddah',
-        name: 'Jeddah Corniche Circuit',
-        location: 'Jeddah',
-        country: 'Saudi Arabia',
-        lat: 21.6319,
-        lng: 39.1044,
-        alt: 15,
-        url: 'http://example.com',
-        races: [
-          {
-            name: 'Saudi Arabian Grand Prix',
-            season: { year: 2021 },
-          },
-        ],
-      };
+      const circuit = await mockCircuit.create();
+      const season = await mockSeason.create({ year: 2024 });
 
-      prisma.circuit.findUnique.mockResolvedValue(mockCircuit);
+      await mockRace.create(season.id, circuit.id, {
+        name: 'Test Grand Prix',
+      });
 
-      const result = await circuitService.getCircuitById(1);
+      const result = await circuitService.getCircuitById(circuit.id);
 
-      expect(result?.stats?.totalRaces).toBe(1);
-      expect(result?.stats?.firstRace).toEqual(result?.stats?.lastRace);
+      expect(result?.stats).toEqual({
+        totalRaces: 1,
+        firstRace: {
+          year: 2024,
+          name: 'Test Grand Prix',
+        },
+        lastRace: {
+          year: 2024,
+          name: 'Test Grand Prix',
+        },
+      });
+    });
+
+    it('should order races chronologically', async () => {
+      const circuit = await mockCircuit.create();
+      const season2023 = await mockSeason.create({ year: 2023 });
+      const season2024 = await mockSeason.create({ year: 2024 });
+      const season2022 = await mockSeason.create({ year: 2022 });
+
+      // Create races in non-chronological order
+      await mockRace.create(season2023.id, circuit.id, {
+        name: 'GP 2023',
+        date: new Date('2023-05-01'),
+      });
+      await mockRace.create(season2024.id, circuit.id, {
+        name: 'GP 2024',
+        date: new Date('2024-05-01'),
+      });
+      await mockRace.create(season2022.id, circuit.id, {
+        name: 'GP 2022',
+        date: new Date('2022-05-01'),
+      });
+
+      const result = await circuitService.getCircuitById(circuit.id);
+
+      expect(result?.stats?.firstRace?.year).toBe(2022);
+      expect(result?.stats?.lastRace?.year).toBe(2024);
+    });
+
+    it('should cache circuit details', async () => {
+      const created = await mockCircuit.create();
+
+      // First call - hits database
+      const firstCall = await circuitService.getCircuitById(created.id);
+      expect(firstCall).toBeDefined();
+
+      // Delete from database
+      await testPrisma.circuit.delete({ where: { id: created.id } });
+
+      // Second call - hits cache
+      const secondCall = await circuitService.getCircuitById(created.id);
+      expect(secondCall).toBeDefined();
+      expect(secondCall?.id).toBe(created.id);
+
+      // Verify cache usage
+      const cacheStats = cacheService.getStats();
+      expect(cacheStats.hits).toBeGreaterThan(0);
+    });
+
+    it('should handle circuit with null coordinates', async () => {
+      const circuit = await mockCircuit.create({
+        lat: null,
+        lng: null,
+        alt: null,
+      });
+
+      const result = await circuitService.getCircuitById(circuit.id);
+
+      expect(result?.lat).toBeNull();
+      expect(result?.lng).toBeNull();
+      expect(result?.alt).toBeNull();
     });
   });
 
   describe('getCircuitByRef', () => {
     it('should return circuit by reference', async () => {
-      const mockCircuit = {
-        id: 1,
+      await mockCircuit.create({
         circuitRef: 'monaco',
         name: 'Circuit de Monaco',
-        location: 'Monte Carlo',
-        country: 'Monaco',
-        lat: 43.7347,
-        lng: 7.42056,
-        alt: 7,
-        url: 'http://example.com',
-        races: [],
-      };
+      });
 
-      prisma.circuit.findUnique.mockResolvedValue(mockCircuit);
+      const circuit = await circuitService.getCircuitByRef('monaco');
 
-      const result = await circuitService.getCircuitByRef('monaco');
-
-      expect(result).not.toBeNull();
-      expect(result?.circuitRef).toBe('monaco');
-      expect(prisma.circuit.findUnique).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { circuitRef: 'monaco' },
-        })
-      );
+      expect(circuit).toBeDefined();
+      expect(circuit?.circuitRef).toBe('monaco');
+      expect(circuit?.name).toBe('Circuit de Monaco');
     });
 
     it('should return null for non-existent reference', async () => {
-      prisma.circuit.findUnique.mockResolvedValue(null);
+      const circuit = await circuitService.getCircuitByRef('nonexistent');
 
-      const result = await circuitService.getCircuitByRef('nonexistent');
-
-      expect(result).toBeNull();
+      expect(circuit).toBeNull();
     });
 
-    it('should include stats for circuit by ref', async () => {
-      const mockCircuit = {
-        id: 1,
-        circuitRef: 'monza',
-        name: 'Autodromo Nazionale di Monza',
-        location: 'Monza',
-        country: 'Italy',
-        lat: 45.6156,
-        lng: 9.28111,
-        alt: 162,
-        url: 'http://example.com',
-        races: [
-          { name: 'Italian GP', season: { year: 2023 } },
-          { name: 'Italian GP', season: { year: 2024 } },
-        ],
-      };
+    it('should include statistics like getCircuitById', async () => {
+      const circuit = await mockCircuit.create({ circuitRef: 'test_circuit' });
+      const season = await mockSeason.create();
 
-      prisma.circuit.findUnique.mockResolvedValue(mockCircuit);
+      await mockRace.create(season.id, circuit.id, { name: 'Test GP' });
 
-      const result = await circuitService.getCircuitByRef('monza');
+      const result = await circuitService.getCircuitByRef('test_circuit');
 
-      expect(result?.stats).toBeDefined();
-      expect(result?.stats?.totalRaces).toBe(2);
+      expect(result?.stats?.totalRaces).toBe(1);
+    });
+
+    it('should cache circuit by ref', async () => {
+      const created = await mockCircuit.create({
+        circuitRef: 'cached_circuit',
+      });
+
+      // First call
+      await circuitService.getCircuitByRef('cached_circuit');
+
+      // Delete from database
+      await testPrisma.circuit.delete({ where: { id: created.id } });
+
+      // Second call - from cache
+      const cached = await circuitService.getCircuitByRef('cached_circuit');
+      expect(cached).toBeDefined();
+      expect(cached?.circuitRef).toBe('cached_circuit');
     });
   });
 
   describe('getCountries', () => {
-    it('should return sorted unique countries', async () => {
-      const mockCountries = [
-        { country: 'Belgium' },
-        { country: 'Italy' },
-        { country: 'Monaco' },
-        { country: 'UK' },
-      ];
+    it('should return empty array when no circuits exist', async () => {
+      const countries = await circuitService.getCountries();
 
-      prisma.circuit.findMany.mockResolvedValue(mockCountries);
-
-      const result = await circuitService.getCountries();
-
-      expect(result).toEqual(['Belgium', 'Italy', 'Monaco', 'UK']);
-      expect(prisma.circuit.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          select: { country: true },
-          distinct: ['country'],
-          orderBy: { country: 'asc' },
-        })
-      );
+      expect(countries).toEqual([]);
     });
 
-    it('should return empty array when no circuits', async () => {
-      prisma.circuit.findMany.mockResolvedValue([]);
+    it('should return unique countries sorted alphabetically', async () => {
+      await mockCircuit.create({ country: 'Italy' });
+      await mockCircuit.create({ country: 'UK' });
+      await mockCircuit.create({ country: 'Monaco' });
+      await mockCircuit.create({ country: 'Italy' }); // Duplicate
 
-      const result = await circuitService.getCountries();
+      const countries = await circuitService.getCountries();
 
-      expect(result).toEqual([]);
+      expect(countries).toEqual(['Italy', 'Monaco', 'UK']);
+      expect(countries).toHaveLength(3);
+    });
+
+    it('should maintain case from database', async () => {
+      await mockCircuit.create({ country: 'United Kingdom' });
+
+      const countries = await circuitService.getCountries();
+
+      expect(countries[0]).toBe('United Kingdom');
+    });
+
+    it('should cache countries for 24 hours', async () => {
+      await mockCircuit.create({ country: 'Italy' });
+
+      // First call
+      await circuitService.getCountries();
+
+      // Add new country
+      await mockCircuit.create({ country: 'Spain' });
+
+      // Second call - returns cached value
+      const cached = await circuitService.getCountries();
+      expect(cached).toEqual(['Italy']);
+
+      // Clear cache and try again
+      cacheService.flush();
+      const fresh = await circuitService.getCountries();
+      expect(fresh).toEqual(['Italy', 'Spain']);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle very long circuit names', async () => {
+      const longName = 'A'.repeat(255);
+      const circuit = await mockCircuit.create({ name: longName });
+
+      const result = await circuitService.getCircuitById(circuit.id);
+
+      expect(result?.name).toBe(longName);
+    });
+
+    it('should handle special characters in circuit names', async () => {
+      await mockCircuit.create({
+        name: 'Circuit Gilles-Villeneuve',
+        circuitRef: 'villeneuve',
+      });
+
+      const result = await circuitService.getAllCircuits({
+        search: 'Gilles-Villeneuve',
+      });
+
+      expect(result.circuits).toHaveLength(1);
+    });
+
+    it('should handle circuits with same name but different locations', async () => {
+      await mockCircuit.create({
+        name: 'Circuit',
+        location: 'City A',
+        circuitRef: 'circuit_a',
+      });
+      await mockCircuit.create({
+        name: 'Circuit',
+        location: 'City B',
+        circuitRef: 'circuit_b',
+      });
+
+      const result = await circuitService.getAllCircuits({ search: 'Circuit' });
+
+      expect(result.circuits).toHaveLength(2);
+    });
+
+    it('should return empty results for page beyond total pages', async () => {
+      await mockCircuit.createBatch(5);
+
+      const result = await circuitService.getAllCircuits({
+        page: 10,
+        limit: 10,
+      });
+
+      expect(result.circuits).toHaveLength(0);
+      expect(result.meta.page).toBe(10);
+      expect(result.meta.hasNext).toBe(false);
+    });
+
+    it('should handle circuit with many races across decades', async () => {
+      const circuit = await mockCircuit.create();
+
+      // Create races from 1950 to 2024
+      const years = [1950, 1975, 2000, 2024];
+      for (const year of years) {
+        const season = await mockSeason.create({ year });
+        await mockRace.create(season.id, circuit.id, {
+          name: `GP ${year}`,
+          date: new Date(`${year}-05-01`),
+        });
+      }
+
+      const result = await circuitService.getCircuitById(circuit.id);
+
+      expect(result?.stats?.totalRaces).toBe(4);
+      expect(result?.stats?.firstRace?.year).toBe(1950);
+      expect(result?.stats?.lastRace?.year).toBe(2024);
+    });
+
+    it('should handle circuits with races in same year', async () => {
+      const circuit = await mockCircuit.create();
+      const season = await mockSeason.create({ year: 2024 });
+
+      // Two races in same year (like Austria - regular + sprint)
+      await mockRace.create(season.id, circuit.id, {
+        name: 'Austrian Grand Prix',
+        round: 1,
+        date: new Date('2024-06-28'),
+      });
+      await mockRace.create(season.id, circuit.id, {
+        name: 'Austrian Grand Prix',
+        round: 2,
+        date: new Date('2024-06-30'),
+      });
+
+      const result = await circuitService.getCircuitById(circuit.id);
+
+      expect(result?.stats?.totalRaces).toBe(2);
+    });
+
+    it('should handle extreme coordinates', async () => {
+      const circuit = await mockCircuit.create({
+        lat: -90.0, // South Pole
+        lng: 180.0, // Date line
+        alt: -400, // Below sea level
+      });
+
+      const result = await circuitService.getCircuitById(circuit.id);
+
+      expect(result?.lat).toBe(-90.0);
+      expect(result?.lng).toBe(180.0);
+      expect(result?.alt).toBe(-400);
+    });
+
+    it('should handle search with empty string', async () => {
+      await mockCircuit.createBatch(5);
+
+      const result = await circuitService.getAllCircuits({ search: '' });
+
+      // Empty search should return all circuits
+      expect(result.circuits).toHaveLength(5);
     });
   });
 });

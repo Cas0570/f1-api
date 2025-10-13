@@ -1,293 +1,367 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import {
+  cleanDatabase,
+  mockSeason,
+  mockRace,
+  mockCircuit,
+  mockDriver,
+  mockTeam,
+  mockRaceResult,
+  mockStatus,
+} from '../../helpers/testSetup';
 import { seasonService } from '../../../src/services/seasonService';
-import { PrismaClient } from '@prisma/client';
-
-// Mock Prisma Client
-vi.mock('@prisma/client', () => {
-  const mockPrismaClient = {
-    season: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      count: vi.fn(),
-    },
-    raceResult: {
-      findMany: vi.fn(),
-    },
-  };
-  return {
-    PrismaClient: vi.fn(() => mockPrismaClient),
-  };
-});
 
 describe('SeasonService', () => {
-  let prisma: any;
-
-  beforeEach(() => {
-    prisma = new PrismaClient();
-    vi.clearAllMocks();
+  beforeEach(async () => {
+    await cleanDatabase();
   });
 
   describe('getAllSeasons', () => {
-    it('should return paginated seasons', async () => {
-      const mockSeasons = [
-        {
-          id: 1,
-          year: 2024,
-          url: 'http://example.com/2024',
-        },
-        {
-          id: 2,
-          year: 2023,
-          url: 'http://example.com/2023',
-        },
-      ];
+    it('should return empty array when no seasons exist', async () => {
+      const result = await seasonService.getAllSeasons({});
 
-      prisma.season.findMany.mockResolvedValue(mockSeasons);
-      prisma.season.count.mockResolvedValue(2);
+      expect(result.seasons).toEqual([]);
+      expect(result.meta.total).toBe(0);
+      expect(result.meta.totalPages).toBe(0);
+    });
 
-      const result = await seasonService.getAllSeasons({ page: 1, limit: 20 });
+    it('should return all seasons with default pagination', async () => {
+      await mockSeason.createBatch([2020, 2021, 2022, 2023, 2024]);
 
-      expect(result.seasons).toHaveLength(2);
-      expect(result.seasons[0].year).toBe(2024);
-      expect(result.meta).toEqual({
-        page: 1,
-        limit: 20,
-        total: 2,
-        totalPages: 1,
-        hasNext: false,
-        hasPrev: false,
-      });
+      const result = await seasonService.getAllSeasons({});
+
+      expect(result.seasons).toHaveLength(5);
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.limit).toBe(20);
+      expect(result.meta.total).toBe(5);
+      expect(result.meta.totalPages).toBe(1);
+      expect(result.meta.hasNext).toBe(false);
+      expect(result.meta.hasPrev).toBe(false);
+    });
+
+    it('should paginate seasons correctly', async () => {
+      // Create 25 seasons
+      const years = Array.from({ length: 25 }, (_, i) => 2000 + i);
+      await mockSeason.createBatch(years);
+
+      // Page 1
+      const page1 = await seasonService.getAllSeasons({ page: 1, limit: 10 });
+      expect(page1.seasons).toHaveLength(10);
+      expect(page1.meta.page).toBe(1);
+      expect(page1.meta.total).toBe(25);
+      expect(page1.meta.totalPages).toBe(3);
+      expect(page1.meta.hasNext).toBe(true);
+      expect(page1.meta.hasPrev).toBe(false);
+
+      // Page 2
+      const page2 = await seasonService.getAllSeasons({ page: 2, limit: 10 });
+      expect(page2.seasons).toHaveLength(10);
+      expect(page2.meta.page).toBe(2);
+      expect(page2.meta.hasNext).toBe(true);
+      expect(page2.meta.hasPrev).toBe(true);
+
+      // Page 3 (last page)
+      const page3 = await seasonService.getAllSeasons({ page: 3, limit: 10 });
+      expect(page3.seasons).toHaveLength(5);
+      expect(page3.meta.hasNext).toBe(false);
+      expect(page3.meta.hasPrev).toBe(true);
     });
 
     it('should sort seasons by year descending (most recent first)', async () => {
-      prisma.season.findMany.mockResolvedValue([]);
-      prisma.season.count.mockResolvedValue(0);
+      await mockSeason.createBatch([2020, 2022, 2021, 2024, 2023]);
 
-      await seasonService.getAllSeasons({ page: 1, limit: 20 });
+      const result = await seasonService.getAllSeasons({});
 
-      expect(prisma.season.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          orderBy: { year: 'desc' },
-        })
-      );
+      expect(result.seasons[0].year).toBe(2024);
+      expect(result.seasons[1].year).toBe(2023);
+      expect(result.seasons[2].year).toBe(2022);
+      expect(result.seasons[3].year).toBe(2021);
+      expect(result.seasons[4].year).toBe(2020);
     });
 
-    it('should handle pagination correctly', async () => {
-      prisma.season.findMany.mockResolvedValue([]);
-      prisma.season.count.mockResolvedValue(75);
+    it('should handle page numbers less than 1', async () => {
+      await mockSeason.createBatch([2020, 2021, 2022]);
 
-      const result = await seasonService.getAllSeasons({ page: 4, limit: 20 });
+      const result = await seasonService.getAllSeasons({ page: 0 });
 
-      expect(prisma.season.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          skip: 60,
-          take: 20,
-        })
-      );
-
-      expect(result.meta).toEqual({
-        page: 4,
-        limit: 20,
-        total: 75,
-        totalPages: 4,
-        hasNext: false,
-        hasPrev: true,
-      });
+      expect(result.meta.page).toBe(1);
     });
 
     it('should cap limit at 100', async () => {
-      prisma.season.findMany.mockResolvedValue([]);
-      prisma.season.count.mockResolvedValue(0);
+      await mockSeason.createBatch([2020, 2021]);
 
-      await seasonService.getAllSeasons({ page: 1, limit: 150 });
+      const result = await seasonService.getAllSeasons({ limit: 200 });
 
-      expect(prisma.season.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          take: 100,
-        })
-      );
+      expect(result.meta.limit).toBe(100);
     });
 
-    it('should enforce minimum page of 1', async () => {
-      prisma.season.findMany.mockResolvedValue([]);
-      prisma.season.count.mockResolvedValue(0);
+    it('should use default limit when 0 is provided', async () => {
+      await mockSeason.createBatch([2020, 2021]);
 
-      const result = await seasonService.getAllSeasons({ page: 0, limit: 20 });
+      const result = await seasonService.getAllSeasons({ limit: 0 });
 
-      expect(result.meta.page).toBe(1);
+      expect(result.meta.limit).toBe(20);
     });
   });
 
   describe('getSeasonById', () => {
-    it('should return season with stats', async () => {
-      const mockSeason = {
-        id: 1,
-        year: 2024,
-        url: 'http://example.com/2024',
-        races: [
-          {
-            raceResults: [{ driverId: 1 }, { driverId: 2 }, { driverId: 3 }],
-          },
-          {
-            raceResults: [{ driverId: 1 }, { driverId: 2 }, { driverId: 4 }],
-          },
-        ],
-      };
+    it('should return season with basic info', async () => {
+      const created = await mockSeason.create({ year: 2024 });
 
-      const mockTeams = [{ teamId: 1 }, { teamId: 2 }, { teamId: 3 }];
+      const season = await seasonService.getSeasonById(created.id);
 
-      prisma.season.findUnique.mockResolvedValue(mockSeason);
-      prisma.raceResult.findMany.mockResolvedValue(mockTeams);
-
-      const result = await seasonService.getSeasonById(1);
-
-      expect(result).not.toBeNull();
-      expect(result?.id).toBe(1);
-      expect(result?.stats).toEqual({
-        totalRaces: 2,
-        drivers: 4, // Unique drivers: 1, 2, 3, 4
-        teams: 3,
-      });
+      expect(season).toBeDefined();
+      expect(season?.id).toBe(created.id);
+      expect(season?.year).toBe(2024);
+      expect(season?.url).toBeDefined();
     });
 
     it('should return null for non-existent season', async () => {
-      prisma.season.findUnique.mockResolvedValue(null);
+      const season = await seasonService.getSeasonById(99999);
 
-      const result = await seasonService.getSeasonById(999);
-
-      expect(result).toBeNull();
+      expect(season).toBeNull();
     });
 
-    it('should handle season with no races', async () => {
-      const mockSeason = {
-        id: 1,
-        year: 2025,
-        url: 'http://example.com/2025',
-        races: [],
-      };
+    it('should calculate statistics correctly - no races', async () => {
+      const created = await mockSeason.create();
 
-      prisma.season.findUnique.mockResolvedValue(mockSeason);
-      prisma.raceResult.findMany.mockResolvedValue([]);
+      const season = await seasonService.getSeasonById(created.id);
 
-      const result = await seasonService.getSeasonById(1);
-
-      expect(result?.stats).toEqual({
+      expect(season?.stats).toEqual({
         totalRaces: 0,
         drivers: 0,
         teams: 0,
       });
     });
 
-    it('should count unique drivers across all races', async () => {
-      const mockSeason = {
-        id: 1,
-        year: 2024,
-        url: 'http://example.com/2024',
-        races: [
-          {
-            raceResults: [
-              { driverId: 1 },
-              { driverId: 1 }, // Same driver twice (shouldn't double count)
-              { driverId: 2 },
-            ],
-          },
-          {
-            raceResults: [
-              { driverId: 1 }, // Same driver in different race
-              { driverId: 3 },
-            ],
-          },
-        ],
-      };
+    it('should calculate statistics correctly - with races', async () => {
+      const season = await mockSeason.create({ year: 2024 });
+      const circuit1 = await mockCircuit.create({ circuitRef: 'circuit1' });
+      const circuit2 = await mockCircuit.create({ circuitRef: 'circuit2' });
+      const circuit3 = await mockCircuit.create({ circuitRef: 'circuit3' });
 
-      prisma.season.findUnique.mockResolvedValue(mockSeason);
-      prisma.raceResult.findMany.mockResolvedValue([{ teamId: 1 }]);
+      await mockRace.create(season.id, circuit1.id, { round: 1 });
+      await mockRace.create(season.id, circuit2.id, { round: 2 });
+      await mockRace.create(season.id, circuit3.id, { round: 3 });
 
-      const result = await seasonService.getSeasonById(1);
+      const result = await seasonService.getSeasonById(season.id);
 
-      expect(result?.stats?.drivers).toBe(3); // Only 3 unique drivers: 1, 2, 3
+      expect(result?.stats?.totalRaces).toBe(3);
+    });
+
+    it('should count unique drivers correctly', async () => {
+      const season = await mockSeason.create();
+      const circuit = await mockCircuit.create();
+      const race = await mockRace.create(season.id, circuit.id);
+
+      const driver1 = await mockDriver.create({ driverRef: 'd1' });
+      const driver2 = await mockDriver.create({ driverRef: 'd2' });
+      const driver3 = await mockDriver.create({ driverRef: 'd3' });
+      const team = await mockTeam.create();
+      const status = await mockStatus.create();
+
+      // Driver 1 and 2 in race
+      await mockRaceResult.create(race.id, driver1.id, team.id, status.id);
+      await mockRaceResult.create(race.id, driver2.id, team.id, status.id);
+
+      const result = await seasonService.getSeasonById(season.id);
+
+      expect(result?.stats?.drivers).toBe(2);
+
+      // Add another race with driver3 and driver1 again
+      const race2 = await mockRace.create(season.id, circuit.id, { round: 2 });
+      await mockRaceResult.create(race2.id, driver1.id, team.id, status.id);
+      await mockRaceResult.create(race2.id, driver3.id, team.id, status.id);
+
+      const result2 = await seasonService.getSeasonById(season.id);
+
+      // Should be 3 unique drivers across all races
+      expect(result2?.stats?.drivers).toBe(3);
+    });
+
+    it('should count unique teams correctly', async () => {
+      const season = await mockSeason.create();
+      const circuit = await mockCircuit.create();
+      const race = await mockRace.create(season.id, circuit.id);
+
+      const driver1 = await mockDriver.create({ driverRef: 'd1' });
+      const driver2 = await mockDriver.create({ driverRef: 'd2' });
+      const team1 = await mockTeam.create({ teamRef: 't1' });
+      const team2 = await mockTeam.create({ teamRef: 't2' });
+      const status = await mockStatus.create();
+
+      // Two teams in race
+      await mockRaceResult.create(race.id, driver1.id, team1.id, status.id);
+      await mockRaceResult.create(race.id, driver2.id, team2.id, status.id);
+
+      const result = await seasonService.getSeasonById(season.id);
+
+      expect(result?.stats?.teams).toBe(2);
+    });
+
+    it('should handle driver appearing in multiple races', async () => {
+      const season = await mockSeason.create();
+      const circuit = await mockCircuit.create();
+      const driver = await mockDriver.create();
+      const team = await mockTeam.create();
+      const status = await mockStatus.create();
+
+      // Same driver in 3 races
+      for (let i = 1; i <= 3; i++) {
+        const race = await mockRace.create(season.id, circuit.id, { round: i });
+        await mockRaceResult.create(race.id, driver.id, team.id, status.id);
+      }
+
+      const result = await seasonService.getSeasonById(season.id);
+
+      expect(result?.stats?.totalRaces).toBe(3);
+      expect(result?.stats?.drivers).toBe(1); // Same driver, counted once
     });
   });
 
   describe('getSeasonByYear', () => {
     it('should return season by year', async () => {
-      const mockSeason = {
-        id: 1,
-        year: 2024,
-        url: 'http://example.com/2024',
-        races: [
-          {
-            raceResults: [{ driverId: 1 }],
-          },
-        ],
-      };
+      await mockSeason.create({ year: 2024 });
 
-      prisma.season.findUnique.mockResolvedValue(mockSeason);
-      prisma.raceResult.findMany.mockResolvedValue([{ teamId: 1 }]);
+      const season = await seasonService.getSeasonByYear(2024);
 
-      const result = await seasonService.getSeasonByYear(2024);
-
-      expect(result).not.toBeNull();
-      expect(result?.year).toBe(2024);
-      expect(prisma.season.findUnique).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { year: 2024 },
-        })
-      );
+      expect(season).toBeDefined();
+      expect(season?.year).toBe(2024);
     });
 
     it('should return null for non-existent year', async () => {
-      prisma.season.findUnique.mockResolvedValue(null);
+      const season = await seasonService.getSeasonByYear(1949);
 
-      const result = await seasonService.getSeasonByYear(1900);
-
-      expect(result).toBeNull();
+      expect(season).toBeNull();
     });
 
-    it('should include stats for season by year', async () => {
-      const mockSeason = {
-        id: 1,
-        year: 2023,
-        url: 'http://example.com/2023',
-        races: [
-          {
-            raceResults: [{ driverId: 1 }, { driverId: 2 }],
-          },
-        ],
-      };
+    it('should include statistics like getSeasonById', async () => {
+      const season = await mockSeason.create({ year: 2024 });
+      const circuit = await mockCircuit.create();
 
-      prisma.season.findUnique.mockResolvedValue(mockSeason);
-      prisma.raceResult.findMany.mockResolvedValue([
-        { teamId: 1 },
-        { teamId: 2 },
-      ]);
+      await mockRace.create(season.id, circuit.id);
 
-      const result = await seasonService.getSeasonByYear(2023);
+      const result = await seasonService.getSeasonByYear(2024);
 
-      expect(result?.stats).toBeDefined();
       expect(result?.stats?.totalRaces).toBe(1);
-      expect(result?.stats?.drivers).toBe(2);
-      expect(result?.stats?.teams).toBe(2);
     });
 
-    it('should handle years from the early F1 era', async () => {
-      const mockSeason = {
-        id: 1,
-        year: 1950,
-        url: 'http://example.com/1950',
-        races: [
-          {
-            raceResults: [{ driverId: 1 }],
-          },
-        ],
-      };
+    it('should handle historic seasons', async () => {
+      await mockSeason.create({ year: 1950 });
 
-      prisma.season.findUnique.mockResolvedValue(mockSeason);
-      prisma.raceResult.findMany.mockResolvedValue([{ teamId: 1 }]);
+      const season = await seasonService.getSeasonByYear(1950);
+
+      expect(season).toBeDefined();
+      expect(season?.year).toBe(1950);
+    });
+
+    it('should handle future seasons', async () => {
+      await mockSeason.create({ year: 2030 });
+
+      const season = await seasonService.getSeasonByYear(2030);
+
+      expect(season).toBeDefined();
+      expect(season?.year).toBe(2030);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle season with many races', async () => {
+      const season = await mockSeason.create({ year: 2024 });
+      const circuits = await mockCircuit.createBatch(24);
+
+      // Create 24 races (full calendar)
+      for (let i = 0; i < 24; i++) {
+        await mockRace.create(season.id, circuits[i].id, { round: i + 1 });
+      }
+
+      const result = await seasonService.getSeasonById(season.id);
+
+      expect(result?.stats?.totalRaces).toBe(24);
+    });
+
+    it('should handle season with many drivers', async () => {
+      const season = await mockSeason.create();
+      const circuit = await mockCircuit.create();
+      const race = await mockRace.create(season.id, circuit.id);
+      const team = await mockTeam.create();
+      const status = await mockStatus.create();
+
+      // Create 20 drivers (10 teams × 2 drivers)
+      const drivers = await mockDriver.createBatch(20);
+      for (const driver of drivers) {
+        await mockRaceResult.create(race.id, driver.id, team.id, status.id);
+      }
+
+      const result = await seasonService.getSeasonById(season.id);
+
+      expect(result?.stats?.drivers).toBe(20);
+    });
+
+    it('should handle season with driver mid-season changes', async () => {
+      const season = await mockSeason.create();
+      const circuit = await mockCircuit.create();
+      const team = await mockTeam.create();
+      const status = await mockStatus.create();
+
+      const driver1 = await mockDriver.create({ driverRef: 'd1' });
+      const driver2 = await mockDriver.create({ driverRef: 'd2' });
+
+      // Race 1: driver1
+      const race1 = await mockRace.create(season.id, circuit.id, { round: 1 });
+      await mockRaceResult.create(race1.id, driver1.id, team.id, status.id);
+
+      // Race 2: driver2 replaces driver1
+      const race2 = await mockRace.create(season.id, circuit.id, { round: 2 });
+      await mockRaceResult.create(race2.id, driver2.id, team.id, status.id);
+
+      const result = await seasonService.getSeasonById(season.id);
+
+      expect(result?.stats?.drivers).toBe(2);
+    });
+
+    it('should handle season with no results but has races', async () => {
+      const season = await mockSeason.create();
+      const circuit = await mockCircuit.create();
+
+      // Race exists but no results yet
+      await mockRace.create(season.id, circuit.id);
+
+      const result = await seasonService.getSeasonById(season.id);
+
+      expect(result?.stats?.totalRaces).toBe(1);
+      expect(result?.stats?.drivers).toBe(0);
+      expect(result?.stats?.teams).toBe(0);
+    });
+
+    it('should return empty results for page beyond total pages', async () => {
+      await mockSeason.createBatch([2020, 2021, 2022]);
+
+      const result = await seasonService.getAllSeasons({ page: 10, limit: 10 });
+
+      expect(result.seasons).toHaveLength(0);
+      expect(result.meta.page).toBe(10);
+      expect(result.meta.hasNext).toBe(false);
+    });
+
+    it('should handle very old seasons', async () => {
+      await mockSeason.create({ year: 1950 });
 
       const result = await seasonService.getSeasonByYear(1950);
 
+      expect(result).toBeDefined();
       expect(result?.year).toBe(1950);
+    });
+
+    it('should handle consecutive seasons correctly', async () => {
+      await mockSeason.createBatch([2020, 2021, 2022, 2023, 2024]);
+
+      const result = await seasonService.getAllSeasons({ limit: 10 });
+
+      // Should be sorted descending
+      expect(result.seasons[0].year).toBe(2024);
+      expect(result.seasons[4].year).toBe(2020);
+      expect(result.seasons).toHaveLength(5);
     });
   });
 });
