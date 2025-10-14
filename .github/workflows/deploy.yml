@@ -44,6 +44,11 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Push database schema
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db?schema=public
+        run: npx prisma db push --accept-data-loss
+
       - name: Run linter
         run: npm run lint
 
