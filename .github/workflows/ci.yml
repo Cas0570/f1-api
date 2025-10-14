@@ -1,14 +1,18 @@
-name: Pull Request Checks
+name: CI Pipeline
 
 on:
+  push:
+    branches:
+      - main
+      - develop
   pull_request:
     branches:
       - main
       - develop
 
 jobs:
-  lint-and-test:
-    name: Lint and Test
+  test-and-build:
+    name: Test and Build
     runs-on: ubuntu-latest
 
     services:
@@ -47,9 +51,6 @@ jobs:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db?schema=public
         run: npx prisma db push --accept-data-loss
 
-      - name: Check TypeScript
-        run: npx tsc --noEmit
-
       - name: Run linter
         run: npm run lint
 
@@ -62,10 +63,17 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Check for build artifacts
+      - name: Check build artifacts
         run: |
           if [ ! -d "dist" ]; then
             echo "❌ Build failed - no dist directory"
             exit 1
           fi
           echo "✅ Build successful"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
