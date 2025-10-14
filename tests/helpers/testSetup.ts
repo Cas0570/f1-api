@@ -63,11 +63,43 @@ export async function cleanDatabase() {
  * Create realistic test data
  */
 
+/**
+ * Utility: Generate unique ID
+ */
+export function uniqueId(prefix = 'test'): string {
+  return `${prefix}_${Date.now()}_${randomInt(1000, 9999)}`;
+}
+
+/**
+ * Utility: Generate random number
+ */
+export function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
+ * Utility: Wait for a condition to be true
+ */
+export async function waitFor(
+  condition: () => Promise<boolean>,
+  timeout = 5000,
+  interval = 100
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    if (await condition()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+  throw new Error('Timeout waiting for condition');
+}
+
 export const mockDriver = {
   create: async (overrides = {}) => {
     return testPrisma.driver.create({
       data: {
-        driverRef: `test_driver_${Date.now()}`,
+        driverRef: uniqueId('driver'),
         number: 44,
         code: 'TST',
         forename: 'Test',
@@ -85,7 +117,7 @@ export const mockDriver = {
     for (let i = 0; i < count; i++) {
       drivers.push(
         await mockDriver.create({
-          driverRef: `test_driver_${Date.now()}_${i}`,
+          driverRef: uniqueId(`driver_${i}`),
           forename: `Driver${i}`,
           surname: `Test${i}`,
           code: `T${i.toString().padStart(2, '0')}`,
@@ -100,7 +132,7 @@ export const mockTeam = {
   create: async (overrides = {}) => {
     return testPrisma.team.create({
       data: {
-        teamRef: uniqueId('test_team'),
+        teamRef: uniqueId('team'),
         name: 'Test Racing Team',
         nationality: 'British',
         url: 'http://test.com/team',
@@ -114,7 +146,7 @@ export const mockTeam = {
     for (let i = 0; i < count; i++) {
       teams.push(
         await mockTeam.create({
-          teamRef: uniqueId(`test_team_${i}`),
+          teamRef: uniqueId(`team_${i}`),
           name: `Team ${i}`,
         })
       );
@@ -127,7 +159,7 @@ export const mockCircuit = {
   create: async (overrides = {}) => {
     return testPrisma.circuit.create({
       data: {
-        circuitRef: `test_circuit_${Date.now()}`,
+        circuitRef: uniqueId('circuit'),
         name: 'Test Circuit',
         location: 'Test City',
         country: 'Test Country',
@@ -146,7 +178,7 @@ export const mockCircuit = {
     for (let i = 0; i < count; i++) {
       circuits.push(
         await mockCircuit.create({
-          circuitRef: `test_circuit_${Date.now()}_${i}`,
+          circuitRef: uniqueId(`circuit_${i}`),
           name: `Circuit ${i}`,
           location: `City ${i}`,
         })
@@ -318,7 +350,7 @@ export const mockCompleteRaceWeekend = {
 
     // Create circuit
     const circuit = await mockCircuit.create({
-      circuitRef: 'silverstone',
+      circuitRef: uniqueId('silverstone'),
       name: 'Silverstone Circuit',
       country: 'UK',
     });
@@ -331,19 +363,19 @@ export const mockCompleteRaceWeekend = {
 
     // Create drivers (top 3)
     const driver1 = await mockDriver.create({
-      driverRef: 'hamilton',
+      driverRef: uniqueId('hamilton'),
       forename: 'Lewis',
       surname: 'Hamilton',
       code: 'HAM',
     });
     const driver2 = await mockDriver.create({
-      driverRef: 'verstappen',
+      driverRef: uniqueId('verstappen'),
       forename: 'Max',
       surname: 'Verstappen',
       code: 'VER',
     });
     const driver3 = await mockDriver.create({
-      driverRef: 'leclerc',
+      driverRef: uniqueId('leclerc'),
       forename: 'Charles',
       surname: 'Leclerc',
       code: 'LEC',
@@ -351,15 +383,15 @@ export const mockCompleteRaceWeekend = {
 
     // Create teams
     const team1 = await mockTeam.create({
-      teamRef: 'mercedes',
+      teamRef: uniqueId('mercedes'),
       name: 'Mercedes',
     });
     const team2 = await mockTeam.create({
-      teamRef: 'red_bull',
+      teamRef: uniqueId('red_bull'),
       name: 'Red Bull Racing',
     });
     const team3 = await mockTeam.create({
-      teamRef: 'ferrari',
+      teamRef: uniqueId('ferrari'),
       name: 'Ferrari',
     });
 
@@ -455,35 +487,3 @@ export const mockCompleteRaceWeekend = {
     };
   },
 };
-
-/**
- * Utility: Wait for a condition to be true
- */
-export async function waitFor(
-  condition: () => Promise<boolean>,
-  timeout = 5000,
-  interval = 100
-): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
-    if (await condition()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, interval));
-  }
-  throw new Error('Timeout waiting for condition');
-}
-
-/**
- * Utility: Generate random number
- */
-export function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-/**
- * Utility: Generate unique ID
- */
-export function uniqueId(prefix = 'test'): string {
-  return `${prefix}_${Date.now()}_${randomInt(1000, 9999)}`;
-}
