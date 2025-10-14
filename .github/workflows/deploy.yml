@@ -82,7 +82,7 @@ jobs:
       - name: Run Database Migrations
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway run npx prisma db push --service Postgres
+        run: railway run npx prisma db push
 
       - name: Print Deployment URL
         run: echo "🚀 Deployment complete! Check Railway dashboard for URL"
