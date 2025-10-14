@@ -100,7 +100,7 @@ export const mockTeam = {
   create: async (overrides = {}) => {
     return testPrisma.team.create({
       data: {
-        teamRef: `test_team_${Date.now()}`,
+        teamRef: uniqueId('test_team'),
         name: 'Test Racing Team',
         nationality: 'British',
         url: 'http://test.com/team',
@@ -114,7 +114,7 @@ export const mockTeam = {
     for (let i = 0; i < count; i++) {
       teams.push(
         await mockTeam.create({
-          teamRef: `test_team_${Date.now()}_${i}`,
+          teamRef: uniqueId(`test_team_${i}`),
           name: `Team ${i}`,
         })
       );
