@@ -213,9 +213,9 @@ describe('Season Routes', () => {
         url: '/api/v1/seasons/year/1949',
       });
 
-      expect(response.statusCode).toBe(404);
+      expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.error.code).toBe('NOT_FOUND');
+      expect(body.error.code).toBe('INVALID_YEAR');
     });
 
     it('should return 400 for invalid year', async () => {
@@ -233,7 +233,7 @@ describe('Season Routes', () => {
         url: '/api/v1/seasons/year/1949',
       });
 
-      expect(response.statusCode).toBe(404); // Season doesn't exist
+      expect(response.statusCode).toBe(400); // Season doesn't exist
     });
 
     it('should return 400 for year too far in future', async () => {
@@ -242,7 +242,7 @@ describe('Season Routes', () => {
         url: '/api/v1/seasons/year/2100',
       });
 
-      expect(response.statusCode).toBe(404); // Season doesn't exist
+      expect(response.statusCode).toBe(400); // Season doesn't exist
     });
 
     it('should include statistics for season by year', async () => {
