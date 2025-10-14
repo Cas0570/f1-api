@@ -134,6 +134,37 @@ describe('Race Routes', () => {
       expect(body.data).toEqual([]);
     });
 
+    it('should filter by circuit', async () => {
+      const season = await mockSeason.create();
+      const monaco = await mockCircuit.create({
+        circuitRef: 'monaco',
+        name: 'Monaco',
+      });
+      const silverstone = await mockCircuit.create({
+        circuitRef: 'silverstone',
+        name: 'Silverstone',
+      });
+
+      await mockRace.create(season.id, monaco.id, {
+        round: 1,
+        name: 'Monaco GP',
+      });
+      await mockRace.create(season.id, silverstone.id, {
+        round: 2,
+        name: 'British GP',
+      });
+
+      const result = await app.inject({
+        method: 'GET',
+        url: '/api/v1/races?circuit=monaco',
+      });
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].circuit.circuitRef).toBe('monaco');
+    });
+
     it('should combine season and circuit filters', async () => {
       const season2023 = await mockSeason.create({ year: 2023 });
       const season2024 = await mockSeason.create({ year: 2024 });

@@ -77,7 +77,7 @@ async function registerPlugins() {
 // Setup routes
 async function setupRoutes() {
   // Import routes
-  const { v1Routes } = await import('./routes/v1/index');
+  const { v1Routes } = await import('./routes/v1/index.js');
 
   // Root endpoint
   fastify.get(
@@ -181,7 +181,7 @@ async function setupRoutes() {
       },
     },
     async () => {
-      const { cacheService } = await import('./services/cacheService');
+      const { cacheService } = await import('./services/cacheService.js');
       const stats = cacheService.getStats();
       const totalRequests = stats.hits + stats.misses;
       const hitRate =
@@ -355,7 +355,7 @@ async function start() {
 📍 Server URL: http://${host}:${port}
 🔍 Health Check: http://${host}:${port}/health
 📚 API Info: http://${host}:${port}/api/v1
-📖 API Documentation: http://${host}:${port}/docs
+📖 API Documentation: http://${host}:${port}/documentation
 🌍 Environment: ${process.env.NODE_ENV || 'development'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     `);
