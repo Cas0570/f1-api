@@ -572,9 +572,20 @@ describe('Race Routes', () => {
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.data[0].driver.forename).toBe('Lewis');
-      expect(body.data[0].driver.surname).toBe('Hamilton');
-      expect(body.data[0].driver.code).toBe('HAM');
+      expect(body.data[0]).toMatchObject({
+        driver: {
+          forename: 'Lewis',
+          surname: 'Hamilton',
+          code: 'HAM',
+          driverRef: driver.driverRef, // Verify the full object
+        },
+        team: {
+          name: expect.any(String),
+          teamRef: expect.any(String),
+        },
+        status: expect.any(String),
+        position: expect.any(Number),
+      });
     });
 
     it('should include team information', async () => {

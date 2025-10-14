@@ -108,13 +108,20 @@ describe('CircuitService', () => {
       });
     });
 
-    it('should filter by country case-insensitively', async () => {
+    it('should filter by country (case-insensitive)', async () => {
       await mockCircuit.create({ country: 'Italy', circuitRef: 'monza' });
+      await mockCircuit.create({ country: 'Italy', circuitRef: 'imola' });
+      await mockCircuit.create({ country: 'UK', circuitRef: 'silverstone' });
 
-      const result = await circuitService.getAllCircuits({ country: 'italy' });
+      // Test exact match
+      const exact = await circuitService.getAllCircuits({ country: 'Italy' });
+      expect(exact.circuits).toHaveLength(2);
 
-      expect(result.circuits).toHaveLength(1);
-      expect(result.circuits[0].country).toBe('Italy');
+      // Test case-insensitive
+      const caseInsensitive = await circuitService.getAllCircuits({
+        country: 'italy',
+      });
+      expect(caseInsensitive.circuits).toHaveLength(2);
     });
 
     it('should search by circuit name', async () => {

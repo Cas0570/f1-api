@@ -730,5 +730,20 @@ describe('RaceService', () => {
       expect(results![0].position).toBe(1);
       expect(results![1].position).toBe(1);
     });
+
+    it('should handle invalid season year', async () => {
+      const result = await raceService.getAllRaces({ season: -1 });
+      expect(result.races).toEqual([]);
+    });
+
+    it('should handle extremely large page numbers', async () => {
+      const season = await mockSeason.create();
+      const circuit = await mockCircuit.create();
+      await mockRace.create(season.id, circuit.id);
+
+      const result = await raceService.getAllRaces({ page: 999999 });
+      expect(result.races).toEqual([]);
+      expect(result.meta.hasNext).toBe(false);
+    });
   });
 });
