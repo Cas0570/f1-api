@@ -7,7 +7,6 @@ npm-debug.log*
 .env.local
 .env.*.local
 
-
 # Build output
 dist/
 build/
@@ -35,3 +34,6 @@ coverage/
 
 # Prisma
 prisma/migrations/
+
+# Railway
+.railway/
